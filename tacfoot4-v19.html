@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 14.8.1</title>
+  <title>Tactical Football — ALPHA 14.8</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = 460, PY = FH / 38;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 14.8.1";
+    const GAME_VERSION = "Version ALPHA 14.8";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -667,13 +667,13 @@
     // kikiTeach is used in Practice/Preseason; kiki in Regular/Playoffs
     const DK = {
       passCompBig: {
-        dan:["Complete to {target} on the {play}, gain of {yards}. First down.","Strike to {target} for {yards} yards! Big play on the {play}.","Pass complete to {target} — {yards}-yard pickup. Chains are moving.","What a throw to {target}! {yards} yards downfield, beat the safety over the top.","Fires to {target}, who breaks free for {yards}. That'll move the chains!","On the money to {target}! {yards} yards through the air, cornerback had no chance.","Dime! {target} hauls it in for {yards} on the {play}. Linebacker was stuck in no-man's land.","Perfect ball to {target} — {yards}-yard completion past the safety. First down and then some."],
-        kiki:["That's how you beat {def} — find the soft spot and deliver.","When you hit throws like that, the cornerback just has to tip his hat.","That ball was out before the safety could close. Perfect timing.","Ice in the veins on that one. Dropped it in a window between the linebacker and cornerback.","You can see the QB's confidence growing. That was a statement throw.","The cornerback didn't even have time to turn around. Elite ball placement.","I love that throw. Anticipation, not reaction. The safety was a step late and it cost them.","Textbook. Read the coverage, found the gap between the linebackers, delivered on time."],
+        dan:["Complete to {target} on the {play}, gain of {yards}. First down.","Strike to {target} for {yards} yards! Big play on the {play}.","Pass complete to {target} — {yards}-yard pickup. Chains are moving.","What a throw to {target}! {yards} yards downfield.","Fires to {target}, who breaks free for {yards}. That'll move the chains!","On the money to {target}! {yards} yards through the air.","Dime! {target} hauls it in for {yards} on the {play}.","Perfect ball to {target} — {yards}-yard completion. First down and then some."],
+        kiki:["That's how you beat {def} — find the soft spot and deliver.","When you hit throws like that, the defense has no answer.","That ball was out before the defender could close. Perfect timing.","Ice in the veins on that one. Dropped it in a window.","You can see the QB's confidence growing. That was a statement throw.","The DB didn't even have time to turn around. Elite ball placement.","I love that throw. Anticipation, not reaction. That's the difference.","Textbook. Read the coverage, found the window, delivered on time."],
         kikiTeach:["The {play} created a mismatch against {def} — {target} found the gap in the zone and the QB delivered on time.","Notice how {target} got behind the coverage? That's what happens when you let the route develop before throwing.","Great read. The defense was in {def}, which leaves that area open. You recognized it and made the right throw.","That throw worked because {target} had separation. In football, waiting one more beat for the route to develop makes all the difference."]
       },
       passCompShort: {
-        dan:["Quick throw to {target} for {yards}. Keeps the chains moving.","Pass to {target}, gain of {yards}. Underneath the linebackers. Solid.","Finds {target} for {yards} on the {play}. Dump-off in the flat, nothing flashy.","Gets it to {target} for a {yards}-yard gain. Quick release before the rush gets there.","Underneath to {target}. {yards} yards, the linebacker couldn't get there in time.","Check-down to {target} for {yards}. Running back found space in the flat.","Hits {target} in stride for {yards}. Quick pass under the safety.","Short completion to {target}. {yards} yards before the cornerback can close."],
-        kiki:["Take what the defense gives you. The linebackers dropped deep and left the short stuff open.","You don't need the home run every play. That's a first down throw underneath the coverage.","Short and sweet. Keeps the defense honest — they can't just rush every play.","Quick throw to the flat — the linebacker couldn't get there in time. Smart football.","Boring? Maybe. Effective? Absolutely. That's how you sustain drives.","Sometimes the smartest QB in the room is the one throwing 5-yard completions under the linebackers all day.","I'll take those completions 10 times out of 10. Move the chains, keep possession.","That's called being a professional. The safety was deep, so take the easy yards underneath."],
+        dan:["Quick throw to {target} for {yards}. Keeps the chains moving.","Pass to {target}, gain of {yards}. Solid.","Finds {target} for {yards} on the {play}. Nothing flashy.","Gets it to {target} for a {yards}-yard gain.","Underneath to {target}. {yards} yards, moves the sticks.","Check-down to {target} for {yards}. Smart and safe.","Hits {target} in stride for {yards}. Efficient football.","Short completion to {target}. {yards} yards and a new set of downs."],
+        kiki:["Take what the defense gives you. Smart football.","You don't need the home run every play. That's a first down throw.","Short and sweet. Keeps the defense honest.","Not every throw needs to be on SportsCenter.","Boring? Maybe. Effective? Absolutely. That's how you sustain drives.","Sometimes the smartest QB in the room is the one throwing 5-yard completions all day.","I'll take those completions 10 times out of 10. Move the chains, keep possession.","That's called being a professional. Take the easy yards."],
         kikiTeach:["That was a safe, smart read. Against {def}, the short route to {target} was there all day.","Sometimes the best play is the easy one. {target} was open underneath and you took the easy yards.","Good decision. When the deep routes are covered, checking down to {target} keeps the drive alive.","That's what you want — quick read, quick throw, easy yards. No need to force it deep."]
       },
       passIncWideOpen: {
@@ -692,28 +692,28 @@
         kikiTeach:["That route was covered by {def}. When you see 'Covered' on a receiver, that means the defender has position — don't throw there.","Against {def}, that receiver wasn't going to get open. Try dropping back more to give the routes time to develop, or look for a different target.","The defense had {target} locked down. Next time, look at the openness labels — green means open, red means stay away.","Forcing throws into tight coverage is the number one cause of interceptions. Be patient and find the open man."]
       },
       interception: {
-        dan:["INTERCEPTED! The cornerback comes up with the ball.","Picked off by the safety! That's a turnover.","Interception! {def} — the cornerback was sitting on that route.","That ball is intercepted by the safety! Change of possession.","Oh no! Intercepted! The cornerback jumped the route.","INT! The linebacker dropped into coverage and picked it off.","Picked! The safety had it read the whole way.","Intercepted at the catch point by the cornerback! Turnover!"],
-        kiki:["That's the throw you can't make. The cornerback was waiting.","The safety read his eyes and jumped the route. Backbreaking.","Right into the defender's hands. The cornerback had perfect position.","When the defense shows {def}, that throw is a trap. The safety was baiting it.","That's a gift. The cornerback didn't earn that one — it was handed to them.","Throw it away! Throw it away! The safety was right there!","The safety was cheating over there the whole time. Had to see that.","The linebacker dropped into a zone and the QB never saw him. Momentum killer."],
+        dan:["INTERCEPTED! The defense comes up with the ball.","Picked off! That's a turnover.","Interception! {def} was sitting on that route.","That ball is intercepted! Change of possession.","Oh no! Intercepted! The DB jumped the route.","INT! That's the last thing you want to see.","Picked! The defender had it read the whole way.","Intercepted at the catch point! Turnover!"],
+        kiki:["That's the throw you can't make. Defense was waiting.","The DB read his eyes and jumped the route. Backbreaking.","Right into the defender's hands. You have to see that coverage.","When the defense shows {def}, that throw is a trap. They baited it.","That's a gift. The defense didn't earn that one — it was handed to them.","Throw it away! Throw it away! I'm screaming it from up here.","The safety was cheating over there the whole time. Had to see that.","That's the kind of mistake that changes the whole game. Momentum killer."],
         kikiTeach:["The defender was in position because {def} takes away that route. Before throwing, check if the receiver shows 'Open' — if not, look elsewhere or throw it away.","That interception happened because the ball hung too long. Against {def}, the safety was in position to jump that throw.","Interceptions usually happen when you throw to a covered receiver. Against {def}, try looking for the receivers who have more separation.","Key lesson: throwing into coverage is the riskiest thing you can do. When in doubt, throw it away or tuck the ball."]
       },
       sack: {
-        dan:["SACKED! The defensive end got around the tackle. Loss of {yards}.","He's brought down behind the line! The linebacker got through. Sack, loss of {yards}.","Down he goes! The defensive end beat the blocker and the pressure got home.","Couldn't escape the rush. The defensive tackle pushed the pocket. Sack.","The rush gets there! Defensive end comes off the edge — QB is down, loss of {yards}.","Sacked for a loss of {yards}! The left tackle got beat and protection broke down.","He's buried! The defensive line wins that one. End and tackle collapsed the pocket.","QB goes down! The linebacker came on the blitz untouched. {yards}-yard loss."],
-        kiki:["Held it too long. The defensive end was coming and the pocket doesn't wait forever.","Can't stand back there that long — the pass rushers will find you.","When the pocket collapses, get rid of it. The defensive end was already past your tackle.","The defensive line won their matchups. Time to make quicker decisions.","The clock in his head needs to speed up. The edge rushers are too fast to hold that long.","You had time. You had a window. The defensive end closed it and now you have a sack.","That's what happens when you play hero ball. The pass rush always wins if you hold it.","The offensive line gave him time — he just didn't use it before the rush arrived."],
+        dan:["SACKED! Loss of {yards} on the play.","He's brought down behind the line! Sack, loss of {yards}.","Down he goes! The pressure got home.","Couldn't escape the rush. Sack.","The rush gets there! QB is down, loss of {yards}.","Sacked for a loss of {yards}! Protection broke down.","He's buried! The defensive line wins that one.","QB goes down! {yards}-yard loss. Devastating."],
+        kiki:["Held it too long. The pocket doesn't wait forever.","Can't stand back there that long against this rush.","When the pocket collapses, get rid of it.","The rush got home. Time to make quicker decisions.","The clock in his head needs to speed up. Get rid of the ball.","You had time. You had a window. Now you have a sack.","That's what happens when you play hero ball instead of throwing it away.","The pocket gave him plenty of time — he just didn't use it."],
         kikiTeach:["That sack happened because the pocket collapsed while you were deciding. Watch the pocket bars — when they go red, throw the ball or tuck it.","Against {def}, the pass rush is coming fast. You need to make quicker reads and get the ball out early.","Sacks lose more yardage than incompletions. When in doubt, throw it away — it's incomplete, but you keep the yards.","The key to avoiding sacks: drop back, read quickly, and if nobody's open, tuck the ball or throw it away before the rush gets there."]
       },
       runBig: {
-        dan:["Handoff to the running back — breaks free for {yards}! Big run!","He finds the hole and he's GONE! {yards}-yard gain! Linebackers couldn't get there!","{yards} on the ground! The safety had to come up and missed the tackle!","Takes the handoff and rips off {yards} yards past the linebackers!","Burst through the line for {yards}! The defensive linemen got pushed back!","Hits the gap — {yards} yards! Ran right past the linebacker. That's a chunk play.","What a run! {yards} yards on the {play}! The cornerback had to make the tackle.","Breaks a tackle from the linebacker and he's off for {yards}! Huge gain!"],
-        kiki:["Hit the gap and the linebackers couldn't catch him. That's running.","The offensive line created a lane and the running back hit it perfectly.","THAT's what a run game looks like — the linebackers were out of position.","When you pick the right play against the right defense, the linebackers can't fill the gaps.","That offensive line is moving the defensive linemen off the ball. Love to see it.","He made one cut past the linebacker and hit the jets. Vision AND speed.","THAT is why you establish the run. The linebackers have to respect it, which opens up the pass.","The linebackers dropped into coverage and the running back made them pay. Beautiful."],
+        dan:["Handoff to the RB — breaks free for {yards}! Big run!","He finds the hole and he's GONE! {yards}-yard gain!","{yards} on the ground! Daylight!","Takes the handoff and rips off {yards} yards!","Burst through the line for {yards}! Nobody's catching him!","Hits the gap — {yards} yards! That's a chunk play on the ground.","What a run! {yards} yards on the {play}!","Breaks a tackle and he's off for {yards}! Huge gain!"],
+        kiki:["Hit the gap and nobody could catch him. That's running.","The blocking created a lane and he hit it perfectly.","THAT's what a run game looks like when the matchup is right.","When you pick the right play against the right defense, that happens.","That OL is moving people off the ball. Love to see it.","He made one cut and hit the jets. Vision AND speed.","THAT is why you establish the run. The defense can't stop everything.","The defense sold out on the pass and got gashed. Beautiful."],
         kikiTeach:["That big run happened because the {play} was effective against {def}. The matchup was in your favor and the blockers opened a lane.","Great play call. The {play} found the gap because {def} wasn't set up to stop it. Watch the matchup arrows — green means the play is strong.","Big runs come from good play selection. You picked the right call against this defense and the blockers did their job.","That gap opened because {def} is vulnerable to the run. Keep attacking when you see a favorable matchup."]
       },
       runShort: {
-        dan:["Handoff, gets {yards} on the {play}. Linebacker made the stop. Tough running.","Gain of {yards} on the ground. Defensive end forced it back inside.","Grinds out {yards} yards on the {play}. Safety came up to help on the tackle.","Takes it for {yards}. Linebacker filled the gap. Hard-fought yardage.","Picks up {yards} on the {play}. Nothing extra, but it's a gain before the linebacker gets there.","Gain of {yards}. The defensive line limits the damage.","{yards} yards on the carry. Cornerback had to come up and make the tackle.","Short gain of {yards} on the {play}. Linebacker meets him at the line. Physical football."],
-        kiki:["Not flashy, but it moves the sticks. The linebacker made a good play to limit it.","Steady running. The linebackers are having to work for every tackle.","Three yards and a cloud of dust. That's football — the defensive line can't hold forever.","Keep pounding it. Those linebackers are getting tired and the big one will come.","Ugly? Sure. But it's {yards} more than the defense wanted to give up.","He'll take those carries all day. Wears the linebackers down.","Every carry like that is a win for the offense. The defensive line can't sustain this.","That's called running behind your pads. The safety had to come up to help — that opens the deep ball."],
+        dan:["Handoff, gets {yards} on the {play}. Tough running.","Gain of {yards} on the ground. Gets what he can.","Grinds out {yards} yards on the {play}.","Takes it for {yards}. Hard-fought yardage.","Picks up {yards} on the {play}. Nothing extra, but it's a gain.","Gain of {yards}. The defense limits the damage.","{yards} yards on the carry. Keeps the chains moving.","Short gain of {yards} on the {play}. Physical football."],
+        kiki:["Not flashy, but it moves the sticks.","Steady running. You don't need a home run every play.","Three yards and a cloud of dust. That's football.","Keep pounding it. The big one will come.","Ugly? Sure. But it's {yards} more than they wanted to give up.","He'll take those carries all day. Wears the defense down.","Every carry like that is a win for the offense. Death by a thousand cuts.","That's called running behind your pads. Old school football."],
         kikiTeach:["Solid gain. The {play} got {yards} yards against {def} — that's good, steady football.","Short runs still move the chains. Against {def}, the run game is working — keep using it.","The defense held it to a short gain, but {yards} yards still helps. Watch the down and distance.","Consistent runs tire out the defense. Keep mixing in the run when the matchup is decent."]
       },
       runLoss: {
-        dan:["Stuffed at the line! Linebacker shot the gap. No gain on the {play}.","Handoff and the defensive end is in the backfield. Loss of yardage.","Nowhere to go. Linebackers filled every gap.","Hit behind the line. The defensive tackle pushed through. Defense read that perfectly.","Tackled in the backfield by the linebacker! Defense blew that up.","The linebacker was there before the running back. No chance.","Run stuffed. The defensive line won at the point of attack.","Hit at the line of scrimmage. Defensive end and linebacker collapsed the hole."],
-        kiki:["Linebackers had that read from the snap. They were in the gaps before the handoff.","That play ran right into the teeth of the defensive line.","Can't run into a stacked box — the linebackers are just sitting there waiting for it.","The linebacker was in the right spot. Gotta adjust.","The defensive end crashed inside. They knew it was coming.","The defensive tackle split the double team. Sometimes they just win up front.","That play needs the linebackers out of position to work. Adjust the game plan.","The defensive coordinator earned his paycheck on that one. Linebackers were perfect."],
+        dan:["Stuffed at the line! No gain on the {play}.","Handoff and he's hit immediately. Loss of yardage.","Nowhere to go. Run stuffed by the defense.","Hit behind the line. Defense read that perfectly.","Tackled in the backfield! Defense blew that up.","The defense was there before the RB. No chance.","Run stuffed. The defense won the line of scrimmage.","Hit at the point of attack. Defense dominated the trenches."],
+        kiki:["Linebackers had that read from the snap.","That play ran right into the teeth of the defense.","Can't run into a stacked box and expect results.","The defense was in the right spot. Gotta adjust.","They knew it was coming. The defense was grinning before the snap.","Sometimes the other team just wins the chess match.","That play needs a different defense to work. Adjust the game plan.","The defensive coordinator earned his paycheck on that one."],
         kikiTeach:["That run was stuffed because {def} was in position to stop the {play}. Check the matchup arrow — red or yellow means the defense has an advantage.","The defense read the run and filled the gaps. Against {def}, the {play} is a tough matchup — try a different run or go to the passing game.","When the defense sells out to stop the run, that's when play action works. If runs keep getting stuffed, try a pass play.","Key lesson: running into a bad matchup usually means lost yardage. Watch the matchup indicators before picking your play."]
       },
       touchdown: {
@@ -1512,6 +1512,7 @@
                 setPbp(p=>[...p,`Caught at +${res.yds}`]);
                 setBallSt("held");setBc(res.cId);setBcP({...tp});setBallP({...tp});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
+                setNarr(`${res.cId.toUpperCase()} catches at +${res.yds}!`);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
                 let dp=pursue(defPos,tp,1);
                 // Ensure no defender lands directly on the catch point
@@ -1537,13 +1538,11 @@
                   const tackleP=R(tp.x,tp.y+tackleGain);
                   setBcP(tackleP);setBallP({...tackleP});
                   setPbp(p=>[...p,"Tackled immediately"]);
-                  setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} but the defender was right there — tackled on contact.`);
                   animThen(()=>endPlay(Math.round(tackleP.y),`${res.cId.toUpperCase()} catches and is tackled immediately for ${fmtYds(Math.round(tackleP.y))}`),ANIM);
                 } else if(catchNd.d<4){
                   // TIER 2: Defender 2-4 yards — one move, then tackled (~30% of catches)
                   maxContactsRef.current=1;
                   setRunAct(0);
-                  setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} — defender closing fast, one chance to make a move!`);
                   const ndp=pursue(dp,tp,1);setDefPos(ndp);
                   const arrows=computeRunArrows(tp,ndp,game,0);setRunArrows(arrows);
                   setCoach(coachRunner(tp,ndp,arrows,game,coachType));
@@ -1555,7 +1554,6 @@
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
-                  setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more before the tackle!`);
                   animThen(()=>{
                     if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches and runs into the ENDZONE!`);
                     else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(totalYds)} in the open field`);
@@ -1937,9 +1935,9 @@
           const pr=throwProbs(id,phase,offP,defPos,defSch,pi,lookDir,diff);
           a.push({type:"throw",target:id,cat:"throw",label:id.toUpperCase(),sub:`${Math.round(pos.y)>0?"+":""}${Math.round(pos.y)}yds`,op:pr.op,cp:pr.cp,ip:pr.ip});
         }
-        // Contextual button labels based on phase — always labeled "Drop Back" so players recognize it
-        const dbLabel=phase<=1?(isPre(diff)?"Drop Back (run the play)":"Drop Back"):"Drop Back";
-        const dbSub=phase<=1?"Receivers still running routes":phase===2?(()=>{const best=["wr1","wr2","te"].map(id=>({id,o:opn(id,offP,defPos,defSch)})).sort((a,b)=>b.o.o-a.o.o)[0];return best?`${fmtTarget(best.id)} at ${Math.round(offP[best.id]?.y||0)}yds — ${best.o.lab}`:"Routes developing";})():pi<30?"⚠️ Pocket collapsing — risky!":pi<50?"⚠️ Pressure building":"Buy time for routes";
+        // Contextual button labels based on phase
+        const dbLabel=phase<=1?(isPre(diff)?"Drop Back (run the play)":"Drop Back"):phase===2?"Buy Time":"Hold On!";
+        const dbSub=phase<=1?"Receivers still running routes":phase===2?(()=>{const best=["wr1","wr2","te"].map(id=>({id,o:opn(id,offP,defPos,defSch)})).sort((a,b)=>b.o.o-a.o.o)[0];return best?`${fmtTarget(best.id)} at ${Math.round(offP[best.id]?.y||0)}yds — ${best.o.lab}`:"Routes developing";})():"Pocket is shaky — decide soon";
         a.push({type:"dropback",cat:"move",label:dbLabel,sub:dbSub});
         // Roll only appears phase 2+ when pressure exists
         const weakSide=getWeak(matchups);
@@ -2363,13 +2361,10 @@
             )}
             {/* DAN & KIKI COMMENTARY — TV broadcast style */}
             {(mode==="result"||mode==="touchdown")&&commentary&&(
-              <div style={{position:"absolute",top:8,left:8,right:8,zIndex:38}}>
+              <div style={{position:"absolute",top:8,left:8,right:8,zIndex:38,pointerEvents:"none"}}>
                 {/* Header badge */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{display:"inline-block",background:"linear-gradient(135deg,#0a1628,#162a4a)",padding:"3px 12px",borderRadius:"3px 3px 0 0",borderBottom:"2px solid #fbbf24",marginBottom:0}}>
-                    <span style={{fontSize:9,fontWeight:800,color:"#fbbf24",letterSpacing:2,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>🎙️ ANNOUNCER'S BOOTH</span>
-                  </div>
-                  <button onClick={()=>setCommentary(null)} style={{background:"rgba(10,22,40,0.92)",border:"1px solid #2a3a50",borderRadius:3,color:"#6a7a90",fontSize:8,fontWeight:700,padding:"2px 8px",cursor:"pointer",letterSpacing:1}}>DISMISS</button>
+                <div style={{display:"inline-block",background:"linear-gradient(135deg,#0a1628,#162a4a)",padding:"3px 12px",borderRadius:"3px 3px 0 0",borderBottom:"2px solid #fbbf24",marginBottom:0}}>
+                  <span style={{fontSize:9,fontWeight:800,color:"#fbbf24",letterSpacing:2,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>🎙️ ANNOUNCER'S BOOTH</span>
                 </div>
                 {/* Dan's line — blue accent stripe */}
                 {commentary.dan&&<div style={{display:"flex",marginBottom:2}}>
@@ -2600,9 +2595,9 @@
                       const rPct=cl(pLR.right,0,100)/100;
                       const barCol=p=>p>0.6?"#22c55e":p>0.3?"#fbbf24":"#ef4444";
                       return <>
-                        <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0"}}>L Pocket</span>
+                        <span style={{fontSize:8,fontWeight:700,color:"#8a9ab0"}}>L</span>
                         <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*lPct,height:6,background:barCol(lPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
-                        <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0"}}>R Pocket</span>
+                        <span style={{fontSize:8,fontWeight:700,color:"#8a9ab0"}}>R</span>
                         <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*rPct,height:6,background:barCol(rPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
                       </>;
                     })()}
@@ -2623,23 +2618,23 @@
                   // Coach explanation based on defense
                   const defKey=defSch?.key;
                   const whyMap={
-                    cover2:{te:"Cover 2 — both safeties dropped deep to protect against long passes, so the middle of the field is open. Look for your tight end there.",rb:"Cover 2 — safeties are playing deep, leaving short passes underneath wide open. Quick throw to the running back.",wr1:"Cover 2 — safeties are deep protecting the long ball. Short routes underneath have room.",wr2:"Cover 2 — safeties are deep protecting the long ball. Short routes underneath have room."},
-                    base43:{wr1:"4-3 Base — balanced defense, four linemen and three linebackers. The outside receivers have room to work.",wr2:"4-3 Base — balanced defense, four linemen and three linebackers. The outside receivers have room to work.",te:"4-3 Base — linebackers are spread out covering the run, so the tight end has a seam up the middle.",rb:"4-3 Base — defense is playing honest, quick pass to the running back in the flat could work."},
-                    nickel:{te:"Nickel — extra defensive back instead of a linebacker, locking down the wide receivers. But the tight end has space in the middle.",rb:"Nickel — extra DB is covering the wide receivers tight. Dump it to the running back underneath.",wr1:"Nickel — extra DB tightens coverage on receivers, but this one found a window.",wr2:"Nickel — extra DB tightens coverage on receivers, but this one found a window."},
-                    blitz:{wr1:"Blitz — linebackers are rushing the QB instead of covering. Receivers should be open if you throw quick!",wr2:"Blitz — linebackers are rushing the QB instead of covering. Receivers should be open if you throw quick!",te:"Blitz — defenders committed to the rush and left someone uncovered. Find the open man fast.",rb:"Blitz — everyone is rushing the QB! Dump it to the running back before they get there."},
-                    goalline:{wr1:"Goal Line — defense packed the line to stop the run, so nobody's covering deep. Wide receiver has room outside.",wr2:"Goal Line — defense packed the line to stop the run, so nobody's covering deep. Wide receiver has room outside.",te:"Goal Line — all defenders stacked at the line of scrimmage. Middle of the field is open downfield.",rb:"Goal Line — defense sold out to stop the run. Running back in the flat is wide open."},
+                    cover2:{te:"Cover 2 leaves the middle open — look for your tight end.",rb:"Cover 2 drops deep — the RB underneath is open.",wr1:"Safeties are deep in Cover 2 — try the short WR route.",wr2:"Safeties are deep in Cover 2 — try the short WR route."},
+                    base43:{wr1:"4-3 Base is balanced — the outside receivers have room.",wr2:"4-3 Base is balanced — the outside receivers have room.",te:"LBs are spread in 4-3 — the TE seam is there.",rb:"4-3 leaves the flat open — check the RB."},
+                    nickel:{te:"Nickel covers the WRs tight but the TE has space in the middle.",rb:"Nickel puts extra DBs on WRs — dump to the RB.",wr1:"Nickel tightens WR coverage — but this WR found a window.",wr2:"Nickel tightens WR coverage — but this WR found a window."},
+                    blitz:{wr1:"Blitz pulls defenders to rush — hot route to the WR!",wr2:"Blitz pulls defenders to rush — hot route to the WR!",te:"Blitz left someone uncovered — find the open man.",rb:"Everyone's rushing — dump it to the RB quick!"},
+                    goalline:{wr1:"Goal line stacks the box — the WR has room outside.",wr2:"Goal line stacks the box — the WR has room outside.",te:"Goal line leaves the middle open downfield.",rb:"Goal line sells out on the run — RB in the flat is open."},
                   };
                   const bestWhy=bestIds[0]&&defKey&&whyMap[defKey]?whyMap[defKey][bestIds[0]]:"Look for the most open receiver.";
                   return <div style={{marginBottom:3}}>
                     {isPre(diff)&&bestIds.length>0&&<div style={{fontSize:9,color:"#4ade80",marginBottom:3,padding:"2px 8px",background:"#4ade8012",borderRadius:3,border:"1px solid #4ade8033"}}>💡 {bestWhy}</div>}
-                    {isPre(diff)&&primaryCovered&&<div style={{fontSize:9,color:"#fbbf24",marginBottom:3,padding:"2px 8px",background:"#fbbf2412",borderRadius:3,border:"1px solid #fbbf2433"}}>👁️ Your intended receiver ({fmtTarget(primaryId)}) is covered — look to your second choice.</div>}
+                    {isPre(diff)&&primaryCovered&&<div style={{fontSize:9,color:"#fbbf24",marginBottom:3,padding:"2px 8px",background:"#fbbf2412",borderRadius:3,border:"1px solid #fbbf2433"}}>👁️ Your primary ({fmtTarget(primaryId)}) is covered — look to your checkdown.</div>}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
                       {throws.map(a=>{
                         const isBest=bestIds.includes(a.target);
                         const isPrimary=a.target===primaryId;
-                        return <button key={a.target} onClick={()=>doQB(a)} style={{...btn,background:isPrimary?"#0e1828":"#0e1520",border:isPrimary?"1px solid #4a8aaa":"1px solid #2a3550",padding:"4px 6px",color:"#d0dce8",display:"flex",flexDirection:"column",gap:2,textAlign:"left",boxShadow:isBest?"0 0 14px rgba(34,197,94,0.35), 0 0 28px rgba(34,197,94,0.15)":isPrimary?"0 0 8px rgba(74,138,170,0.25)":"none"}}>
+                        return <button key={a.target} onClick={()=>doQB(a)} style={{...btn,background:"#0e1520",border:isPrimary?"1px solid #4a6a8a":"1px solid #2a3550",padding:"4px 6px",color:"#d0dce8",display:"flex",flexDirection:"column",gap:2,textAlign:"left",boxShadow:isBest?"0 0 14px rgba(34,197,94,0.35), 0 0 28px rgba(34,197,94,0.15)":"none"}}>
                           <div style={{display:"flex",justifyContent:"space-between",width:"100%",alignItems:"center"}}>
-                            <span style={{fontWeight:800,fontSize:12}}>{isBest?"⭐ ":""}{a.label}{isPrimary?<span style={{fontSize:7,fontWeight:700,color:"#6ab4e0",background:"#142838",padding:"1px 4px",borderRadius:2,marginLeft:4,border:"1px solid #2a4a60"}}>INTENDED</span>:""} <span style={{fontSize:9,color:"#8ab4e0"}}>{a.sub}</span></span>
+                            <span style={{fontWeight:800,fontSize:12}}>{isBest?"⭐ ":""}{a.label}{isPrimary?<span style={{fontSize:7,fontWeight:700,color:"#8ab4e0",background:"#1a2a40",padding:"1px 3px",borderRadius:2,marginLeft:4,letterSpacing:0.5}}>PRIMARY</span>:""} <span style={{fontSize:9,color:"#8ab4e0"}}>{a.sub}</span></span>
                             <span style={{fontSize:7,fontWeight:700,color:"#000",background:a.op.col,padding:"1px 3px",borderRadius:2}}>{a.op.lab}</span>
                           </div>
                           <div style={{display:"flex",justifyContent:"space-between",width:"100%",fontSize:10,background:"#05080c",padding:"2px 5px",borderRadius:3,fontFamily:"monospace"}}>
@@ -2674,12 +2669,9 @@
                       const bestSide=["wr1","te"].some(id=>opn(id,offP,defPos,defSch).o>=2)?"look_left":"look_right";
                       bestActions=[bestSide];
                       actionTip=bestSide==="look_left"?"👀 Look Left — fools the safety into moving left. Then throw RIGHT where there's less coverage.":"👀 Look Right — draws the safety to the right. Then throw LEFT where there's less coverage.";
-                    } else if(phase>=2&&pi>70&&!hasOpen&&!lookDir){
-                      bestActions=["look_left","look_right"];
-                      actionTip="📋 Good protection — try looking away from your intended receiver to fool the safety, then throw the other way.";
                     } else if(phase>=2&&pi>70&&!hasOpen){
                       bestActions=["dropback"];
-                      actionTip="📋 Good protection. Drop back to let routes develop — receivers need another beat to get open.";
+                      actionTip="📋 Good protection. Drop back to let the deep routes develop.";
                     }
                     // Play action tip
                     if(selPlay?.playAction&&phase<=1){

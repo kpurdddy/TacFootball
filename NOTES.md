@@ -8,6 +8,61 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 14.8.1 — Text Clarity & Visual Feedback (9 fixes)
+
+Backup: `tacfoot4-v19.html` (pre-ALPHA 14.8.1 state)
+
+#### FIX 1 — Coach Advice Clarity
+- Kept defensive formation names (4-3, Cover 2, Nickel, Blitz, Goal Line) but added plain English explanations
+- Example: "4-3 Base — balanced defense, four linemen and three linebackers. The outside receivers have room to work."
+- Players learn through context — terminology stays, meaning is taught alongside it
+
+#### FIX 2 — Primary Receiver Message Clarity
+- "look to your checkdown" → "look to your second choice"
+- "primary" → "intended receiver" in the coach tip
+- Removed jargon that new players wouldn't understand
+
+#### FIX 3 — Pocket Bar Labels
+- "L" / "R" → "L Pocket" / "R Pocket" above the integrity bars
+- Players now understand what the bars represent without guessing
+
+#### FIX 4 — Intended Receiver Highlighting
+- "PRIMARY" badge → "INTENDED" badge with distinct blue background and border
+- Intended receiver button gets subtle blue tint (#0e1828), brighter border (#4a8aaa), and soft glow
+- More visually distinct from other throw buttons at a glance
+
+#### FIX 5 — Drop Back Availability Logic
+- Drop Back is now always labeled "Drop Back" (was "Hold On!" at phase 3+)
+- Contextual subtitles show risk level: "⚠️ Pocket collapsing — risky!" when red, "⚠️ Pressure building" when yellow
+- Players always know the button exists and what it does
+
+#### FIX 6 — Coach Advice for Clean Pocket
+- When pocket bars are green (>70%) and nobody is open yet: coach suggests using Look mechanic
+- "Good protection — try looking away from your intended receiver to fool the safety, then throw the other way"
+- Teaches the Look mechanic through game context instead of just saying "press Look"
+
+#### FIX 7 — YAC Explanation in Commentary
+- Catch narration now explains WHY the play ended based on the YAC tier:
+  - Tier 1 (<2yd): "catches for +15 but the defender was right there — tackled on contact"
+  - Tier 2 (2-4yd): "catches for +15 — defender closing fast, one chance to make a move!"
+  - Tier 3 (4+yd): "catches for +15 in space — picks up 8 more before the tackle!"
+- Players understand why "open field" catches get bonus yards and tight catches don't
+
+#### FIX 8 — Announcer Booth DISMISS Button
+- Added small "DISMISS" button in the announcer booth header bar
+- Clicking clears the commentary overlay so players can see the field underneath
+- Styled subtly (dark bg, muted text) so it doesn't distract but is clearly clickable
+
+#### FIX 9 — Natural Position Terminology in Commentary
+- Dan & Kiki now use real football position names naturally in their lines:
+  - "Linebacker shot the gap", "safety came up to help", "cornerback had no chance"
+  - "Running back found space in the flat — linebacker couldn't get there in time"
+  - "Defensive end got around the tackle", "safety was cheating over"
+- Updated categories: passCompBig, passCompShort, runBig, runShort, runLoss, sack, interception
+- Players learn "linebacker", "safety", "cornerback", "defensive end" through repeated natural use
+
+---
+
 ### ALPHA 14.8 — Splash Screen Polish (3 fixes)
 
 Backup: `tacfoot4-v18.html` (pre-ALPHA 14.8 state)
@@ -726,7 +781,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.8 — splash screen polish) |
+| tacfoot4.html | Current working version (ALPHA 14.8.1 — text clarity, visual feedback) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -743,6 +798,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v14.html | Before ALPHA 14.4 (visual clarity overhaul) |
 | tacfoot4-v15.html | Before ALPHA 14.5 (screen layout + splash screen) |
 | tacfoot4-v16.html | Before ALPHA 14.6 (gameplay fixes) |
+| tacfoot4-v19.html | Before ALPHA 14.8.1 (text clarity, visual feedback) |
 | tacfoot4-v18.html | Before ALPHA 14.8 (splash screen polish) |
 | tacfoot4-v17.html | Before ALPHA 14.7 (camera scroll + gameplay) |
 | C:\Users\obrie\Desktop\TacFoot\index.html | Deployment copy (mirrors tacfoot4.html) |
