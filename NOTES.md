@@ -702,7 +702,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.6 — gameplay fixes, commentary variety, yardage formatting) |
+| tacfoot4.html | Current working version (ALPHA 14.7 — camera scroll, catch tiers, primary receiver, scramble lane) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -719,5 +719,6 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v14.html | Before ALPHA 14.4 (visual clarity overhaul) |
 | tacfoot4-v15.html | Before ALPHA 14.5 (screen layout + splash screen) |
 | tacfoot4-v16.html | Before ALPHA 14.6 (gameplay fixes) |
+| tacfoot4-v17.html | Before ALPHA 14.7 (camera scroll + gameplay) |
 | C:\Users\obrie\Desktop\TacFoot\index.html | Deployment copy (mirrors tacfoot4.html) |
 | NOTES.md | This file |
