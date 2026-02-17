@@ -8,6 +8,30 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 14.8 — Splash Screen Polish (3 fixes)
+
+Backup: `tacfoot4-v18.html` (pre-ALPHA 14.8 state)
+
+#### FIX 1 — Splash Description Tightened
+- Replaced three paragraphs of description with two clean, shorter paragraphs
+- First paragraph: what the game is and why it exists (one sentence)
+- Second paragraph: development road map (kept the cheerleaders joke)
+- Warmer, less cluttered
+
+#### FIX 2 — Coach Boxes Wider
+- Coach selection boxes now have `minWidth:280px` with `flex: 1 1 280px`
+- Container widened from `maxWidth:500` to `maxWidth:620`
+- Side by side on wide screens, stacks vertically on narrow screens (flexWrap)
+- Descriptions now read as full sentences instead of stacked one-word fragments
+- Gap increased from 10 to 12px for breathing room
+
+#### FIX 3 — Coach Names Updated
+- Coach A: "Offensive Genius" → "The Gunslinger" — "Aggressive, unpredictable, and always scheming. His plays are designed to surprise — and when they work, they work brilliantly."
+- Coach B: "Hometown Hero" → "The Old Fox" — "Forty years of football and he's seen it all. Develops his players, reads the game better than anyone, and makes the adjustments that win in the fourth quarter. His teams always play harder than they should."
+- Internal coachType ("A"/"B") unchanged — only display names and descriptions updated
+
+---
+
 ### ALPHA 14.7 — Camera Scroll + Gameplay Fixes (4 fixes)
 
 Backup: `tacfoot4-v17.html` (pre-ALPHA 14.7 state)
@@ -702,7 +726,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.7 — camera scroll, catch tiers, primary receiver, scramble lane) |
+| tacfoot4.html | Current working version (ALPHA 14.8 — splash screen polish) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -719,6 +743,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v14.html | Before ALPHA 14.4 (visual clarity overhaul) |
 | tacfoot4-v15.html | Before ALPHA 14.5 (screen layout + splash screen) |
 | tacfoot4-v16.html | Before ALPHA 14.6 (gameplay fixes) |
+| tacfoot4-v18.html | Before ALPHA 14.8 (splash screen polish) |
 | tacfoot4-v17.html | Before ALPHA 14.7 (camera scroll + gameplay) |
 | C:\Users\obrie\Desktop\TacFoot\index.html | Deployment copy (mirrors tacfoot4.html) |
 | NOTES.md | This file |

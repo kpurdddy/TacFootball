@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 14.8</title>
+  <title>Tactical Football — ALPHA 14.7</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = 460, PY = FH / 38;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 14.8";
+    const GAME_VERSION = "Version ALPHA 14.7";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -2195,7 +2195,10 @@
               <div style={{fontSize:40,fontWeight:900,color:"#fbbf24",marginBottom:4}}>🏈 TACTICAL FOOTBALL</div>
               <div style={{fontSize:22,color:"#fff",fontWeight:800,marginBottom:6,letterSpacing:1}}>{GAME_VERSION}</div>
               <div style={{fontSize:15,color:"#c8b090",fontWeight:500,marginBottom:6,lineHeight:1.6,maxWidth:560,margin:"0 auto 6px",textAlign:"left"}}>
-                Learn football terminology and play-calling from scratch (Practice and Preseason), or test yourself against realistic defenses (Regular Season and Playoffs). A turn-based tactical football game — I wanted a game like this and couldn't find one.
+                This is intended to teach and give a feel for football terminology and plays to people who don't know it very well (Team Practice and Preseason), and be fun for people who do (Regular Season and Playoffs).
+              </div>
+              <div style={{fontSize:15,color:"#c8b090",fontWeight:500,marginBottom:6,lineHeight:1.6,maxWidth:560,margin:"0 auto 6px",textAlign:"left"}}>
+                They become more realistic in terms of completions and first downs as you get closer to playoffs. It's a turn-based tactical football game I made because I couldn't find anything that does this.
               </div>
               <div style={{fontSize:15,color:"#c8b090",fontWeight:500,marginBottom:10,lineHeight:1.6,maxWidth:560,margin:"0 auto 10px",textAlign:"left"}}>
                 Development road map includes two player games, more trick plays, and maybe cheerleaders (not that you'll see them... but you'll know they're there).
@@ -2206,14 +2209,14 @@
               {!coachType ? (
                 <>
                   <div style={{fontSize:22,color:"#8aa0b8",marginBottom:24,fontWeight:700}}>Select Your Head Coach</div>
-                  <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",maxWidth:620,margin:"0 auto 24px"}}>
-                    <button onClick={()=>setCoachType("A")} style={{...btn,minWidth:280,flex:"1 1 280px",padding:"16px 20px",background:"#0e1520",border:"2px solid #4a9eff",color:"#d0dce8",textAlign:"left"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:"#4a9eff"}}>The Gunslinger</div>
-                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Aggressive, unpredictable, and always scheming. His plays are designed to surprise — and when they work, they work brilliantly.</div>
+                  <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",maxWidth:500,margin:"0 auto 24px"}}>
+                    <button onClick={()=>setCoachType("A")} style={{...btn,flex:1,padding:"16px 20px",background:"#0e1520",border:"2px solid #4a9eff",color:"#d0dce8",textAlign:"left"}}>
+                      <div style={{fontSize:18,fontWeight:800,color:"#4a9eff"}}>Coach A (Offensive Genius)</div>
+                      <div style={{fontSize:16,color:"#8a9ab0",marginTop:4,lineHeight:1.5}}>Highly accurate reads. Arrogant, aggressive, expects perfection.</div>
                     </button>
-                    <button onClick={()=>setCoachType("B")} style={{...btn,minWidth:280,flex:"1 1 280px",padding:"16px 20px",background:"#0e1520",border:"2px solid #22c55e",color:"#d0dce8",textAlign:"left"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>The Old Fox</div>
-                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Forty years of football and he's seen it all. Develops his players, reads the game better than anyone, and makes the adjustments that win in the fourth quarter. His teams always play harder than they should.</div>
+                    <button onClick={()=>setCoachType("B")} style={{...btn,flex:1,padding:"16px 20px",background:"#0e1520",border:"2px solid #22c55e",color:"#d0dce8",textAlign:"left"}}>
+                      <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>Coach B (Hometown Hero)</div>
+                      <div style={{fontSize:16,color:"#8a9ab0",marginTop:4,lineHeight:1.5}}>Steady veteran. Supportive, methodical, emphasizes execution.</div>
                     </button>
                   </div>
                 </>
