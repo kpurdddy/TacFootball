@@ -8,6 +8,94 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 14.7 — Camera Scroll + Gameplay Fixes (4 fixes)
+
+Backup: `tacfoot4-v17.html` (pre-ALPHA 14.7 state)
+
+#### FIX 1 — Smart Camera Auto-Scroll
+- Replaced simple threshold-based camera with multi-mode smart camera system
+- During passing (snapping/animating): tracks midpoint between deepest receiver and QB
+- During decision/pressure: tracks midpoint of all receivers + QB, expands view for wide spreads
+- During running/catch: follows ball carrier with 3-yard lookahead
+- During result/touchdown: follows ball carrier with 5-yard lookahead
+- Smooth lerp transitions via `camTarget` ref + requestAnimationFrame loop (0.12 lerp factor)
+- Menu/playcall/presnap modes reset camera to 0
+
+#### FIX 2 — Catch YAC Tiers (3-Tier System)
+- Replaced old 4-tier catch resolution with clean 3-tier system based on VISUAL defender distance
+- Uses `visualPos.current` for defender positions (matches what player sees on screen)
+- Tier 1 (<2 yards): Immediate tackle, 0-1 bonus yards (~50% of catches)
+- Tier 2 (2-4 yards): One move in runner mode, then tackled (maxContacts=1, ~30%)
+- Tier 3 (4+ yards): Open field auto-gain of +3-8 bonus yards, no runner mode (~20%)
+- Removed legacy fallback code (dead `if(false)` block cleaned up)
+
+#### FIX 3 — Primary Receiver Highlighted
+- Added `primary` field to all pass/trick plays identifying the play's intended target
+- Primary receiver's throw button gets subtle blue border (#4a6a8a) and "PRIMARY" badge
+- Practice/Preseason: yellow coach tip when primary is covered ("Your primary is covered — look to your checkdown")
+- Helps beginners learn to go through reads — check primary first, then secondary options
+- Primaries: Quick Slants→WR1, Deep Post→WR1, Play Action→WR1, Screen Pass→RB, Four Verticals→WR1, Out Routes→WR1, Curl/Comeback→WR1, TE Seam→TE, Flea Flicker→WR1
+
+#### FIX 4 — QB Scramble Lane
+- When ALL receivers are covered/tight (none OPEN or better) AND pocket >50%: ~1/8 chance a scramble lane opens
+- Shows "QB Scramble — Lane is open! +3-8 yards" button below throw targets
+- Auto-resolved: 3-8 yard gain, no runner mode, no contact decisions
+- Practice coach explains: "When nobody's open and the pocket is still solid, sometimes the QB can just take off and run"
+- Computed once per phase (ref tracks current phase to prevent re-rolling)
+- Resets on snap
+
+---
+
+### ALPHA 14.6 — Gameplay Fixes (7 fixes)
+
+Backup: `tacfoot4-v16.html` (pre-ALPHA 14.6 state)
+
+#### FIX 1 — Coach Advice Timing
+- Coach's Clipboard was showing stale decision-phase advice during result screen
+- Added `setCoach("")` in `endPlay()` to clear old advice when play resolves
+- Result mode now shows only `debrief` (post-play commentary), never leftover decision-time text
+- Coach advice during decision mode unchanged — still updates per action
+
+#### FIX 2 — Look Left/Right Explanation
+- Changed Look button descriptions from "improves throw accuracy" to explain deception mechanics
+- Look Left now says "pulls safety left, RIGHT side opens up"
+- Look Right now says "draws safety right, LEFT side opens up"
+- Practice mode coach tip explains: "Looking one way fools the safety — then throw the other way"
+- Narration text updated: "safety moves that way. Receivers on the [other] side are more open now!"
+
+#### FIX 3 — Auto-Dive With No Defender Nearby
+- Receivers were catching in open space then auto-diving because distance checks used game-state positions
+- Game-state positions (from `pursue()`) differ from visual positions due to animation lerp lag
+- Fix: Distance checks at catch point now use `visualPos.current` (animation system positions)
+- If no defender is VISUALLY within range, receiver runs free — no phantom dives
+
+#### FIX 4 — Sack Message on Run Play
+- `generateCommentary` was categorizing ALL negative-yard plays as "sack" (line: `res.yds<0 → cat="sack"`)
+- Run plays stuffed for a loss got sack commentary ("pocket collapsed while you were deciding")
+- Fix: Negative-yard run plays now correctly categorize as "runLoss" instead of "sack"
+- Only actual pass-play sacks (not run/qbDraw) trigger sack commentary
+
+#### FIX 5 — Receivers Still Off Screen
+- Camera follow threshold reduced from 8 yards to 5 yards
+- Camera now scrolls more aggressively to keep ball carrier and nearby action in view
+- Deep catches that were previously off-screen are now visible within the field viewport
+
+#### FIX 6 — Dan and Kiki Line Variety
+- Doubled Dan lines: every category now has 8 Dan lines (was 4)
+- Doubled Kiki lines: every category now has 8 Kiki lines (was 4)
+- Added no-repeat picker to `generateCommentary` — same line won't appear twice in a row
+- New Kiki lines include more personality: analytical, funny, impressed, critical
+- Categories expanded: passCompBig, passCompShort, passIncWideOpen, passIncContested, passIncCovered, interception, sack, runBig, runShort, runLoss, touchdown, throwAway, fumble, turnovOnDowns
+
+#### FIX 7 — Yardage Format Cleanup
+- Added `fmtYds()` utility: positive → "+6", negative → "-2", no "+-" patterns
+- All "Brought down at +X" messages → "Brought down for +X" (or "-X" for losses)
+- Play log entries cleaned: "1st! +13" → "1st down, +13"
+- Catches and dives use clean `fmtYds()` formatting throughout
+- QB brought down messages also cleaned
+
+---
+
 ### ALPHA 14.5 — Screen Layout + Splash Screen (4 fixes)
 
 Backup: `tacfoot4-v15.html` (pre-ALPHA 14.5 state)
@@ -614,7 +702,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.5 — screen layout, splash screen, pocket bars off field) |
+| tacfoot4.html | Current working version (ALPHA 14.6 — gameplay fixes, commentary variety, yardage formatting) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -630,5 +718,6 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v13.html | Before ALPHA 14.3 (pocket bars + fixes) |
 | tacfoot4-v14.html | Before ALPHA 14.4 (visual clarity overhaul) |
 | tacfoot4-v15.html | Before ALPHA 14.5 (screen layout + splash screen) |
+| tacfoot4-v16.html | Before ALPHA 14.6 (gameplay fixes) |
 | C:\Users\obrie\Desktop\TacFoot\index.html | Deployment copy (mirrors tacfoot4.html) |
 | NOTES.md | This file |

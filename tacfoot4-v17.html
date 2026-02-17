@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 14.7</title>
+  <title>Tactical Football — ALPHA 14.6</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = 460, PY = FH / 38;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 14.7";
+    const GAME_VERSION = "Version ALPHA 14.6";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -154,17 +154,17 @@
         { name:"Stretch Run", icon:"↔️", type:"run", cat:"staple", tooltip:"RB moves sideways reading blocks, looking for a lane", brief:"RB takes the handoff moving sideways, reads blocks.", desc:["Patient run — RB moves laterally looking for the first opening.","High variance. Sometimes stuffed for nothing, sometimes breaks big.","Best when your OL can sustain blocks and create movement.","Rewards patience — don't just hit the first hole."], weak:"Base 4-3", weakWhy:"Disciplined DEs keep the edge sealed — nowhere to stretch to.", strong:"Blitz", strongWhy:"Overcommitting defenders open up cutback lanes all over the field.", formation:FI, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.block(f.wr2.x,0),te:f=>RL.block(f.te.x,0),rb:f=>RL.sweep(f.rb.x,f.rb.y,1)} },
       ],
       pass: [
-        { name:"Quick Slants", icon:"⚡", type:"pass", cat:"staple", primary:"wr1", tooltip:"Receivers cut inside for a quick throw", brief:"Short fast routes inside.", desc:["Ball out fast."], weak:"Nickel", weakWhy:"Extra DB clogs the middle where slants want to go.", strong:"Blitz", strongWhy:"Quick release beats the rush — ball's out before the blitz gets there.", formation:FSG, routes:{wr1:f=>RL.slant(f.wr1.x,0,1),wr2:f=>RL.slant(f.wr2.x,0,-1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
-        { name:"Deep Post", icon:"🎯", type:"pass", cat:"staple", primary:"wr1", tooltip:"Receiver sprints deep then angles to the middle", brief:"WR sprints deep to middle.", desc:["Requires 2-3 actions of pocket time."], weak:"Blitz", weakWhy:"The rush gets there before the deep route develops — you'll be sacked.", strong:"Goal Line", strongWhy:"Goal line has zero deep coverage — nobody back there to stop the post.", formation:FSG, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,1),te:f=>RL.curl(f.te.x,0),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
-        { name:"Play Action", icon:"🎭", type:"pass", cat:"situational", primary:"wr1", playAction:true, tooltip:"Fake the handoff, then throw", brief:"Fake handoff, then throw.", desc:["Needs established run game."], weak:"Blitz", weakWhy:"Blitzers don't care about the fake — they're rushing no matter what.", strong:"Base 4-3", strongWhy:"Linebackers bite hard on the run fake, leaving receivers wide open.", formation:FI, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.dive(f.rb.x,f.rb.y)} },
-        { name:"Screen Pass", icon:"🪤", type:"pass", cat:"situational", primary:"rb", tooltip:"Let the rush come, dump to the RB with blockers", brief:"Let rush come, dump to RB.", desc:["Turns pressure against them."], weak:"Base 4-3", weakWhy:"Patient linebackers read the screen and blow it up in the backfield.", strong:"Blitz", strongWhy:"Let the rushers fly past, dump to RB with blockers ahead.", formation:FSG, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.flat(f.te.x,0,-1),rb:f=>RL.screen(f.rb.x,f.rb.y,-1)} },
-        { name:"Four Verticals", icon:"🚀", type:"pass", cat:"situational", primary:"wr1", tooltip:"Every receiver goes deep", brief:"Every receiver deep.", desc:["4 targets vs 2 safeties."], weak:"Blitz", weakWhy:"You need time for deep routes — the blitz gets there first.", strong:"Base 4-3", strongWhy:"Four receivers deep vs two safeties — the math works in your favor.", formation:FSP, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.wheel(f.rb.x,f.rb.y,-1)} },
-        { name:"Out Routes", icon:"↪️", type:"pass", cat:"staple", primary:"wr1", tooltip:"Receivers cut to the sideline at 8-12 yards", brief:"Receivers cut toward the sideline at 8-12 yards.", desc:["Move the chains — reliable 8-12 yard gains.","If the receiver gets out of bounds, the clock stops.","Low interception risk since the throw goes toward the sideline.","Doesn't work well against zones that cover the flats."], weak:"Cover 2", weakWhy:"Cover 2 CBs sit right in the out route area — they're waiting for it.", strong:"Blitz", strongWhy:"Vacated zones leave the sideline wide open — easy pitch and catch.", formation:FSG, routes:{wr1:f=>RL.out(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,-1),te:f=>RL.curl(f.te.x,0),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
-        { name:"Curl/Comeback", icon:"🔃", type:"pass", cat:"staple", primary:"wr1", tooltip:"Run upfield then turn back toward the QB", brief:"Receivers sprint upfield then turn back to the QB.", desc:["Works when defenders give a big cushion.","The receiver sells the deep route, then stops and turns around.","Safe throw — the receiver is coming back toward the ball.","Useless against press coverage that jams at the line."], weak:"Goal Line", weakWhy:"Press coverage jams at the line — can't even start the route.", strong:"Cover 2", strongWhy:"Soft zones give a big cushion — space to turn back and catch.", formation:FSG, routes:{wr1:f=>RL.curl(f.wr1.x,0),wr2:f=>RL.curl(f.wr2.x,0),te:f=>RL.flat(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
-        { name:"TE Seam", icon:"⬆️", type:"pass", cat:"staple", primary:"te", tooltip:"Tight end up the middle between linebackers and safeties", brief:"TE runs straight up the middle between LBs and safeties.", desc:["Exploits the gap between linebacker zones and safety coverage.","The TE is your biggest, toughest receiver — he can take a hit.","Dangerous in the middle of the field, 10-20 yard gains.","Needs time in the pocket since the route develops downfield."], weak:"Nickel", weakWhy:"The extra DB covers the middle seam — that's exactly what Nickel is for.", strong:"Base 4-3", strongWhy:"Linebackers drop shallow in 4-3, leaving the seam wide open behind them.", formation:FSG, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.slant(f.wr2.x,0,-1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
+        { name:"Quick Slants", icon:"⚡", type:"pass", cat:"staple", tooltip:"Receivers cut inside for a quick throw", brief:"Short fast routes inside.", desc:["Ball out fast."], weak:"Nickel", weakWhy:"Extra DB clogs the middle where slants want to go.", strong:"Blitz", strongWhy:"Quick release beats the rush — ball's out before the blitz gets there.", formation:FSG, routes:{wr1:f=>RL.slant(f.wr1.x,0,1),wr2:f=>RL.slant(f.wr2.x,0,-1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
+        { name:"Deep Post", icon:"🎯", type:"pass", cat:"staple", tooltip:"Receiver sprints deep then angles to the middle", brief:"WR sprints deep to middle.", desc:["Requires 2-3 actions of pocket time."], weak:"Blitz", weakWhy:"The rush gets there before the deep route develops — you'll be sacked.", strong:"Goal Line", strongWhy:"Goal line has zero deep coverage — nobody back there to stop the post.", formation:FSG, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,1),te:f=>RL.curl(f.te.x,0),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
+        { name:"Play Action", icon:"🎭", type:"pass", cat:"situational", playAction:true, tooltip:"Fake the handoff, then throw", brief:"Fake handoff, then throw.", desc:["Needs established run game."], weak:"Blitz", weakWhy:"Blitzers don't care about the fake — they're rushing no matter what.", strong:"Base 4-3", strongWhy:"Linebackers bite hard on the run fake, leaving receivers wide open.", formation:FI, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.dive(f.rb.x,f.rb.y)} },
+        { name:"Screen Pass", icon:"🪤", type:"pass", cat:"situational", tooltip:"Let the rush come, dump to the RB with blockers", brief:"Let rush come, dump to RB.", desc:["Turns pressure against them."], weak:"Base 4-3", weakWhy:"Patient linebackers read the screen and blow it up in the backfield.", strong:"Blitz", strongWhy:"Let the rushers fly past, dump to RB with blockers ahead.", formation:FSG, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.flat(f.te.x,0,-1),rb:f=>RL.screen(f.rb.x,f.rb.y,-1)} },
+        { name:"Four Verticals", icon:"🚀", type:"pass", cat:"situational", tooltip:"Every receiver goes deep", brief:"Every receiver deep.", desc:["4 targets vs 2 safeties."], weak:"Blitz", weakWhy:"You need time for deep routes — the blitz gets there first.", strong:"Base 4-3", strongWhy:"Four receivers deep vs two safeties — the math works in your favor.", formation:FSP, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.wheel(f.rb.x,f.rb.y,-1)} },
+        { name:"Out Routes", icon:"↪️", type:"pass", cat:"staple", tooltip:"Receivers cut to the sideline at 8-12 yards", brief:"Receivers cut toward the sideline at 8-12 yards.", desc:["Move the chains — reliable 8-12 yard gains.","If the receiver gets out of bounds, the clock stops.","Low interception risk since the throw goes toward the sideline.","Doesn't work well against zones that cover the flats."], weak:"Cover 2", weakWhy:"Cover 2 CBs sit right in the out route area — they're waiting for it.", strong:"Blitz", strongWhy:"Vacated zones leave the sideline wide open — easy pitch and catch.", formation:FSG, routes:{wr1:f=>RL.out(f.wr1.x,0,1),wr2:f=>RL.out(f.wr2.x,0,-1),te:f=>RL.curl(f.te.x,0),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
+        { name:"Curl/Comeback", icon:"🔃", type:"pass", cat:"staple", tooltip:"Run upfield then turn back toward the QB", brief:"Receivers sprint upfield then turn back to the QB.", desc:["Works when defenders give a big cushion.","The receiver sells the deep route, then stops and turns around.","Safe throw — the receiver is coming back toward the ball.","Useless against press coverage that jams at the line."], weak:"Goal Line", weakWhy:"Press coverage jams at the line — can't even start the route.", strong:"Cover 2", strongWhy:"Soft zones give a big cushion — space to turn back and catch.", formation:FSG, routes:{wr1:f=>RL.curl(f.wr1.x,0),wr2:f=>RL.curl(f.wr2.x,0),te:f=>RL.flat(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
+        { name:"TE Seam", icon:"⬆️", type:"pass", cat:"staple", tooltip:"Tight end up the middle between linebackers and safeties", brief:"TE runs straight up the middle between LBs and safeties.", desc:["Exploits the gap between linebacker zones and safety coverage.","The TE is your biggest, toughest receiver — he can take a hit.","Dangerous in the middle of the field, 10-20 yard gains.","Needs time in the pocket since the route develops downfield."], weak:"Nickel", weakWhy:"The extra DB covers the middle seam — that's exactly what Nickel is for.", strong:"Base 4-3", strongWhy:"Linebackers drop shallow in 4-3, leaving the seam wide open behind them.", formation:FSG, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.slant(f.wr2.x,0,-1),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.check(f.rb.x,f.rb.y,-1)} },
       ],
       trick: [
-        { name:"Flea Flicker", icon:"🪰", type:"trick", flea:true, fleaFumble:0.08, primary:"wr1", tooltip:"Fake handoff, pitch back to QB, throw deep", brief:"Fake handoff, pitch back, throw deep.", desc:["8% fumble risk."], weak:"Cover 2", weakWhy:"Two safeties sit deep — the fake doesn't pull them up.", strong:"Base 4-3", strongWhy:"Safeties bite hard on the run fake, leaving the deep field empty.", formation:FI, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.flee(f.rb.x,f.rb.y)} },
+        { name:"Flea Flicker", icon:"🪰", type:"trick", flea:true, fleaFumble:0.08, tooltip:"Fake handoff, pitch back to QB, throw deep", brief:"Fake handoff, pitch back, throw deep.", desc:["8% fumble risk."], weak:"Cover 2", weakWhy:"Two safeties sit deep — the fake doesn't pull them up.", strong:"Base 4-3", strongWhy:"Safeties bite hard on the run fake, leaving the deep field empty.", formation:FI, routes:{wr1:f=>RL.post(f.wr1.x,0,1),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.seam(f.te.x,0,-1),rb:f=>RL.flee(f.rb.x,f.rb.y)} },
         { name:"Statue of Liberty", icon:"🗽", type:"trick", statue:true, tooltip:"Fake a throw, secretly hand to the RB", brief:"Fake pass, slip to RB.", desc:["Pure surprise."], weak:"Blitz", weakWhy:"Blitzers crash the backfield — the RB has zero blockers.", strong:"Nickel", strongWhy:"Nickel ignores the backfield watching receivers — RB sneaks out.", formation:FI, routes:{wr1:f=>RL.go(f.wr1.x,0,1),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.flat(f.te.x,0,-1),rb:f=>RL.statue(f.rb.x,f.rb.y,1)} },
         { name:"QB Draw", icon:"🎭", type:"trick", qbDraw:true, tooltip:"Drop back like a pass, then QB runs through the gaps", brief:"Fake pass, QB runs through gaps.", desc:["Punishes heavy rush."], weak:"Goal Line", weakWhy:"Goal line packs every gap — nowhere for the QB to run.", strong:"Blitz", strongWhy:"Blitzers fly upfield past the QB, leaving the middle wide open.", formation:FSG, routes:{wr1:f=>RL.go(f.wr1.x,0,0),wr2:f=>RL.go(f.wr2.x,0,0),te:f=>RL.block(f.te.x,0),rb:f=>RL.block(f.rb.x,f.rb.y)} },
       ],
@@ -845,8 +845,6 @@
       const tacklesBroken = React.useRef(0);
       const maxContactsRef = React.useRef(2); // Max contact decisions allowed this play
       const tuckWarnings = React.useRef(0);
-      // FIX 4 (14.7): QB scramble lane — computed once per phase
-      const scrambleLaneRef = React.useRef({phase:-1,open:false});
       const [contactFlash, setContactFlash] = useState(null);
       const [commentary, setCommentary] = useState(null);
       const [practiceOverlay, setPracticeOverlay] = useState(null);
@@ -873,65 +871,18 @@
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
 
-      // FIX 1 (14.7): Smart camera auto-scroll — keeps all action in view
-      const camTarget = React.useRef(0);
       useEffect(() => {
         let t=0;
-        if(["diff_select","menu","playcall","fourth"].includes(mode)){
-          t=0; // Pre-snap: center on LOS
-        } else if(mode==="presnap"){
-          t=0; // Formation view centered on LOS
-        } else if(["snapping","animating"].includes(mode)&&!isRun){
-          // During snap animation for pass plays — start panning toward receivers
-          const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
-          const qy=qbP?.y||0;
-          if(recYs.length>0){
-            const deepest=Math.max(...recYs);
-            const midY=(deepest+qy)/2;
-            t=Math.max(0,midY-FH/(PY*2)*0.4);
-          }
-        } else if(["decision","pressure"].includes(mode)){
-          // Passing decision: keep deepest receiver AND QB both visible
-          const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0);
-          const qy=qbP?.y||0;
-          const deepest=Math.max(...recYs,0);
-          const shallowest=Math.min(qy,...recYs.filter(y=>y!==0));
-          // Center camera between QB and deepest receiver
-          const midY=(deepest+shallowest)/2;
-          // Ensure both extremes fit within viewport (FH/PY ≈ 38 yards visible)
-          const viewYards=FH/PY;
-          const span=deepest-shallowest;
-          if(span>viewYards*0.7){
-            // Need to prioritize: show deepest receivers + QB area
-            t=midY-viewYards*0.15;
-          } else {
-            t=Math.max(0,midY-viewYards*0.2);
-          }
-        } else if(isRun||isCatch){
-          // Following ball carrier during runs/YAC
+        if(!["diff_select","menu","playcall","fourth","presnap"].includes(mode)){
           const c=bcP||(bc==="qb"?qbP:null);
-          if(c) t=Math.max(0,c.y-3);
-        } else if(mode==="result"||mode==="touchdown"){
-          // Result: show ball carrier's final position
-          const c=bcP||(bc==="qb"?qbP:null);
-          if(c) t=Math.max(0,c.y-5);
+          if(c){
+            // FIX 5 (14.6): More aggressive camera follow — center on ball carrier
+            // Keep LOS visible by clamping, but always show the action
+            if(c.y>5)t=c.y-5; else if(c.y<-5)t=c.y+5;
+          }
         }
-        camTarget.current=t;
-      },[mode,bcP,qbP,bc,phase,runAct,isRun,isCatch,offP]);
-      // Smooth lerp camera toward target
-      useEffect(()=>{
-        let raf;
-        const step=()=>{
-          setCamY(prev=>{
-            const diff=camTarget.current-prev;
-            if(Math.abs(diff)<0.1)return camTarget.current;
-            raf=requestAnimationFrame(step);
-            return prev+diff*0.12;
-          });
-        };
-        raf=requestAnimationFrame(step);
-        return ()=>cancelAnimationFrame(raf);
-      },[camTarget.current]);
+        setCamY(t);
+      },[mode,bcP,qbP,bc,phase,runAct]);
 
       const yS=useCallback(y=>FH/2-(y-camY)*PY,[camY]);
       const xS=p=>(p/100)*FW;
@@ -1243,7 +1194,7 @@
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
         setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(false);setCommentary(null);setPracticeOverlay(null);
-        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);
+        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;setContactFlash(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
         const sq=selPlay.formation.qb; setQbP(sq);setBallP({...sq});
@@ -1438,7 +1389,7 @@
 
       const doQB=action=>{
         const np=phase+1;setNarr("");
-        const pbpLabels={dropback:"Drop Back",scramble_left:"Roll Left",scramble_right:"Roll Right",step_up:"Step Up",look_left:"Look Left",look_right:"Look Right",handoff:"Handoff to RB",statue_handoff:"Statue of Liberty",tuck_run:"Tuck & Run",throw_away:"Throw Away",tuck_ball:"Tuck the Ball",scramble_lane:"QB Scramble"};
+        const pbpLabels={dropback:"Drop Back",scramble_left:"Roll Left",scramble_right:"Roll Right",step_up:"Step Up",look_left:"Look Left",look_right:"Look Right",handoff:"Handoff to RB",statue_handoff:"Statue of Liberty",tuck_run:"Tuck & Run",throw_away:"Throw Away",tuck_ball:"Tuck the Ball"};
         if(action.type==="throw")setPbp(p=>[...p,`Pass to ${action.target.toUpperCase()}`]);
         else if(pbpLabels[action.type])setPbp(p=>[...p,pbpLabels[action.type]]);
         let mu=matchups;
@@ -1525,31 +1476,37 @@
                   }
                 }
                 setDefPos(dp);
-                // FIX 2 (14.7): Three-tier YAC based on VISUAL defender distance
+                // FIX 7 + FIX 3 (14.6): Use VISUAL defender positions for distance check
+                // Game-state positions from pursue() may differ from where defenders appear on screen
                 const visualDefs={};
                 for(const [did] of Object.entries(dp)){
                   const vp=visualPos.current[`def-${did}`];
                   visualDefs[did]=vp||dp[did];
                 }
                 const catchNd=nearD(tp,visualDefs);
-                if(catchNd.d<2){
-                  // TIER 1: Defender under 2 yards — immediate tackle (~50% of catches)
+                const nearCount=Object.values(visualDefs).filter(d=>dst(tp,d)<3).length;
+                if(catchNd.d<=1.5){
+                  // Defender right on top — immediate tackle, no options
                   const tackleGain=rnd(0,1);
                   const tackleP=R(tp.x,tp.y+tackleGain);
                   setBcP(tackleP);setBallP({...tackleP});
                   setPbp(p=>[...p,"Tackled immediately"]);
                   animThen(()=>endPlay(Math.round(tackleP.y),`${res.cId.toUpperCase()} catches and is tackled immediately for ${fmtYds(Math.round(tackleP.y))}`),ANIM);
-                } else if(catchNd.d<4){
-                  // TIER 2: Defender 2-4 yards — one move, then tackled (~30% of catches)
+                } else if(catchNd.d<=3){
+                  // Defender close — one contact option only (dive forward, no full menu)
                   maxContactsRef.current=1;
-                  setRunAct(0);
-                  const ndp=pursue(dp,tp,1);setDefPos(ndp);
-                  const arrows=computeRunArrows(tp,ndp,game,0);setRunArrows(arrows);
-                  setCoach(coachRunner(tp,ndp,arrows,game,coachType));
-                  animThen(()=>setMode("runner"),ANIM);
-                } else {
-                  // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
-                  const bonus=rnd(3,8);
+                  const diveGain=rnd(1,3);
+                  const diveP=R(tp.x,tp.y+diveGain);
+                  setBcP(diveP);setBallP({...diveP});
+                  setPbp(p=>[...p,`Dove forward +${diveGain}`]);
+                  setNarr(`${res.cId.toUpperCase()} catches and dives forward!`);
+                  animThen(()=>{
+                    if(game.bo+Math.round(diveP.y)>=100) endPlay(Math.round(diveP.y),`${res.cId.toUpperCase()} dives into the ENDZONE!`);
+                    else endPlay(Math.round(diveP.y),`${res.cId.toUpperCase()} catches and dives for ${fmtYds(Math.round(diveP.y))}`);
+                  },ANIM);
+                } else if(nearCount===0){
+                  // Wide open catch — auto gain, no contact decision
+                  const bonus=rnd(2,5);
                   const totalYds=res.yds+bonus;
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
@@ -1558,6 +1515,14 @@
                     if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches and runs into the ENDZONE!`);
                     else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(totalYds)} in the open field`);
                   },ANIM);
+                } else {
+                  maxContactsRef.current=nearCount===1?1:2;
+                  const rendDp={...dp};
+                  if(Object.keys(olPos).length>0){for(const [dl,olId] of Object.entries(OL_BLK)){if(rendDp[dl]&&olPos[olId]&&rendDp[dl].y<olPos[olId].y)rendDp[dl]=R(rendDp[dl].x,olPos[olId].y);}}
+                  const arrows=computeRunArrows(tp,dp,game);
+                  setRunArrows(arrows);
+                  setCoach(coachRunner(tp,dp,arrows,game,coachType));
+                  animThen(()=>{setPhase(np);setMode("runner");},ANIM);
                 }
               }
             },flightMs);
@@ -1603,16 +1568,6 @@
             endPlay(-loss,`QB tucks the ball — loss of ${loss}`,false,false,"Protected the football by going down safely.");break;
           }
           case "throw_away":{setPbp(p=>[...p,"Throw Away"]);endPlay(0,"Threw it away",false,true,"QB threw the ball away to avoid trouble.");break;}
-          case "scramble_lane":{
-            // FIX 4 (14.7): QB scramble lane — auto-resolved 3-8 yard gain
-            const gain=rnd(3,8);setIsRun(true);setBc("qb");setIsCatch(false);
-            const nq=R(qbP.x+rnd(-6,6),qbP.y+gain);
-            setBcP(nq);setBallP({...nq});setBallSt("held");
-            setPbp(p=>[...p,`QB Scramble +${gain}`]);
-            setNarr("QB sees a lane and takes off!");
-            if(isPre(diff))setCoach("When nobody's open and the pocket is still solid, sometimes the QB can just take off and run.");
-            animThen(()=>endPlay(gain,`QB scrambles for ${fmtYds(gain)}`),ANIM);break;
-          }
           default:break;
         }
       };
@@ -1964,14 +1919,6 @@
         if(pi<30&&phase>=3) a.push({type:"tuck_ball",cat:"tuck",label:"🏈 TUCK THE BALL",sub:"Small loss, zero fumble risk"});
         a.push({type:"tuck_run",cat:"other",label:"Tuck & Run",sub:"QB keeps it"});
         a.push({type:"throw_away",cat:"escape",label:"🏈 Throw Away",sub:"Incomplete, no INT"});
-        // FIX 4 (14.7): QB scramble lane — ~1/8 chance when all receivers covered and pocket decent
-        if(scrambleLaneRef.current.phase!==phase){
-          const allCovered=["wr1","wr2","te","rb"].every(id=>{if(id==="rb"&&handed)return true;const o=opn(id,offP,defPos,defSch);return o.o<2;});
-          scrambleLaneRef.current={phase,open:allCovered&&pi>50&&Math.random()<0.125};
-        }
-        if(scrambleLaneRef.current.open){
-          a.push({type:"scramble_lane",cat:"scramble",label:"🏃 QB Scramble",sub:"Lane is open! +3-8 yards"});
-        }
         return a;
       };
 
@@ -2608,16 +2555,10 @@
                   </div>
                 </div>
                 {(()=>{
-                  const allActs=getQBActions();
-                  const throws=allActs.filter(a=>a.cat==="throw");
-                  const scrambleLane=allActs.find(a=>a.type==="scramble_lane");
+                  const throws=getQBActions().filter(a=>a.cat==="throw");
                   // BUG 7: Find best 1-2 throws for Practice/Preseason highlighting
                   const sorted=[...throws].sort((a,b)=>(b.cp-b.ip)-(a.cp-a.ip));
                   const bestIds=isPre(diff)?sorted.slice(0,2).map(a=>a.target):[];
-                  // FIX 3 (14.7): Primary receiver — the play's intended target
-                  const primaryId=selPlay?.primary||null;
-                  const primaryOp=primaryId?opn(primaryId,offP,defPos,defSch):null;
-                  const primaryCovered=primaryOp&&primaryOp.o<=0;
                   // Coach explanation based on defense
                   const defKey=defSch?.key;
                   const whyMap={
@@ -2630,14 +2571,12 @@
                   const bestWhy=bestIds[0]&&defKey&&whyMap[defKey]?whyMap[defKey][bestIds[0]]:"Look for the most open receiver.";
                   return <div style={{marginBottom:3}}>
                     {isPre(diff)&&bestIds.length>0&&<div style={{fontSize:9,color:"#4ade80",marginBottom:3,padding:"2px 8px",background:"#4ade8012",borderRadius:3,border:"1px solid #4ade8033"}}>💡 {bestWhy}</div>}
-                    {isPre(diff)&&primaryCovered&&<div style={{fontSize:9,color:"#fbbf24",marginBottom:3,padding:"2px 8px",background:"#fbbf2412",borderRadius:3,border:"1px solid #fbbf2433"}}>👁️ Your primary ({fmtTarget(primaryId)}) is covered — look to your checkdown.</div>}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
                       {throws.map(a=>{
                         const isBest=bestIds.includes(a.target);
-                        const isPrimary=a.target===primaryId;
-                        return <button key={a.target} onClick={()=>doQB(a)} style={{...btn,background:"#0e1520",border:isPrimary?"1px solid #4a6a8a":"1px solid #2a3550",padding:"4px 6px",color:"#d0dce8",display:"flex",flexDirection:"column",gap:2,textAlign:"left",boxShadow:isBest?"0 0 14px rgba(34,197,94,0.35), 0 0 28px rgba(34,197,94,0.15)":"none"}}>
+                        return <button key={a.target} onClick={()=>doQB(a)} style={{...btn,background:"#0e1520",border:"1px solid #2a3550",padding:"4px 6px",color:"#d0dce8",display:"flex",flexDirection:"column",gap:2,textAlign:"left",boxShadow:isBest?"0 0 14px rgba(34,197,94,0.35), 0 0 28px rgba(34,197,94,0.15)":"none"}}>
                           <div style={{display:"flex",justifyContent:"space-between",width:"100%",alignItems:"center"}}>
-                            <span style={{fontWeight:800,fontSize:12}}>{isBest?"⭐ ":""}{a.label}{isPrimary?<span style={{fontSize:7,fontWeight:700,color:"#8ab4e0",background:"#1a2a40",padding:"1px 3px",borderRadius:2,marginLeft:4,letterSpacing:0.5}}>PRIMARY</span>:""} <span style={{fontSize:9,color:"#8ab4e0"}}>{a.sub}</span></span>
+                            <span style={{fontWeight:800,fontSize:12}}>{isBest?"⭐ ":""}{a.label} <span style={{fontSize:9,color:"#8ab4e0"}}>{a.sub}</span></span>
                             <span style={{fontSize:7,fontWeight:700,color:"#000",background:a.op.col,padding:"1px 3px",borderRadius:2}}>{a.op.lab}</span>
                           </div>
                           <div style={{display:"flex",justifyContent:"space-between",width:"100%",fontSize:10,background:"#05080c",padding:"2px 5px",borderRadius:3,fontFamily:"monospace"}}>
@@ -2647,7 +2586,6 @@
                         </button>;
                       })}
                     </div>
-                    {scrambleLane&&<button onClick={()=>doQB(scrambleLane)} style={{...btn,background:"#1a2a10",border:"1px solid #4a8a2a",padding:"4px 8px",color:"#86efac",fontSize:11,fontWeight:700,marginTop:3,width:"100%",textAlign:"center"}}>{scrambleLane.label} — {scrambleLane.sub}</button>}
                   </div>;
                 })()}
                 {(()=>{
