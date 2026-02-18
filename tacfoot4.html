@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 14.9</title>
+  <title>Tactical Football — ALPHA 14.9.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = 460, PY = FH / 38;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 14.9";
+    const GAME_VERSION = "Version ALPHA 14.9.1";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -849,6 +849,7 @@
       const scrambleLaneRef = React.useRef({phase:-1,open:false});
       const [contactFlash, setContactFlash] = useState(null);
       const [commentary, setCommentary] = useState(null);
+      const commentaryTimer = React.useRef(null);
       const [practiceOverlay, setPracticeOverlay] = useState(null);
       const [showMenuConfirm, setShowMenuConfirm] = useState(false);
       const recSeeds = React.useRef({wr1:1,wr2:1,te:1,rb:1});
@@ -873,10 +874,12 @@
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
 
-      // FIX 1 (14.7) + FIX 4 (14.9): Smart camera auto-scroll — aggressive tracking
+      // FIX 1 (14.7) + FIX 4 (14.9) + FIX 3 (14.9.1): Smart camera auto-scroll — aggressive tracking
       const camTarget = React.useRef(0);
+      const camLerp = React.useRef(0.2);
       useEffect(() => {
         let t=0;
+        let lerp=0.2;
         const viewYards=FH/PY; // ~38 yards visible
         if(["diff_select","menu","playcall","fourth"].includes(mode)){
           t=0;
@@ -885,10 +888,8 @@
         } else if(["snapping","animating"].includes(mode)&&!isRun){
           // Pass plays — aggressively track deepest receiver
           const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
-          const qy=qbP?.y||0;
           if(recYs.length>0){
             const deepest=Math.max(...recYs);
-            // Bias toward showing receivers rather than centering — receivers are the action
             t=Math.max(0,deepest-viewYards*0.65);
           }
         } else if(["decision","pressure"].includes(mode)){
@@ -899,23 +900,29 @@
           const shallowest=Math.min(qy,...recYs.filter(y=>y!==0));
           const span=deepest-shallowest;
           if(span>viewYards*0.8){
-            // Very wide spread — prioritize deepest receivers, QB might be near bottom
             t=Math.max(0,deepest-viewYards*0.75);
           } else {
-            // Normal spread — center between shallowest and deepest, slight upfield bias
             const midY=(deepest+shallowest)/2;
             t=Math.max(0,midY-viewYards*0.3);
           }
         } else if(isRun||isCatch){
+          // FIX 3 (14.9.1): Aggressive camera for active runners — 10yd lookahead, fast lerp
           const c=bcP||(bc==="qb"?qbP:null);
-          if(c) t=Math.max(0,c.y-5);
+          if(c){
+            t=Math.max(0,c.y-10);
+            lerp=0.28;
+            // Snap if ball carrier is in top 20% of viewport (about to run off-screen)
+            const screenY=FH/2-(c.y-camY)*PY;
+            if(screenY<FH*0.2) lerp=1.0;
+          }
         } else if(mode==="result"||mode==="touchdown"){
           const c=bcP||(bc==="qb"?qbP:null);
           if(c) t=Math.max(0,c.y-5);
         }
         camTarget.current=t;
-      },[mode,bcP,qbP,bc,phase,runAct,isRun,isCatch,offP]);
-      // Smooth lerp camera toward target — faster lerp for responsive tracking
+        camLerp.current=lerp;
+      },[mode,bcP,qbP,bc,phase,runAct,isRun,isCatch,offP,camY]);
+      // Smooth lerp camera toward target — variable speed based on mode
       useEffect(()=>{
         let raf;
         const step=()=>{
@@ -923,7 +930,7 @@
             const diff=camTarget.current-prev;
             if(Math.abs(diff)<0.05)return camTarget.current;
             raf=requestAnimationFrame(step);
-            return prev+diff*0.2;
+            return prev+diff*camLerp.current;
           });
         };
         raf=requestAnimationFrame(step);
@@ -932,13 +939,6 @@
 
       const yS=useCallback(y=>FH/2-(y-camY)*PY,[camY]);
       const xS=p=>(p/100)*FW;
-
-      // FIX 5 (14.9): Announcer booth auto-dismiss after 4 seconds
-      useEffect(()=>{
-        if(!commentary)return;
-        const t=setTimeout(()=>setCommentary(null),4000);
-        return ()=>clearTimeout(t);
-      },[commentary]);
 
       // Sync yS/xS and target positions to refs for rAF loop (zero React deps)
       useEffect(() => { ySRef.current = yS; }, [yS]);
@@ -1246,7 +1246,7 @@
       const snap=()=>{
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
-        setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(false);setCommentary(null);setPracticeOverlay(null);
+        setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(false);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
         lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
@@ -1359,7 +1359,11 @@
         setPbp(p=>[...p,res.td?"TOUCHDOWN!":desc]);
         setResult(res);setNarr("");setRunArrows([]);
         setCoach("");  // Clear stale decision-time advice — debrief handles result commentary
-        setCommentary(generateCommentary(res,selPlay,defSch,game,diff,lastThrowOpenness.current,lastThrowTarget.current));
+        // FIX 2 (14.9.1): Delay announcer booth by 1.5s so field result is visible first
+        const comm=generateCommentary(res,selPlay,defSch,game,diff,lastThrowOpenness.current,lastThrowTarget.current);
+        setCommentary(null);
+        if(commentaryTimer.current)clearTimeout(commentaryTimer.current);
+        commentaryTimer.current=setTimeout(()=>setCommentary(comm),1500);
         setDebrief(postPlayDebrief(res,selPlay,defSch,matchups,diff));
       };
 
@@ -1878,7 +1882,7 @@
         setPhase(0);setHanded(false);setBallSt("held");setBallAn(false);
         setCamY(0);setRunAct(0);setNarr("");setCoach("");setDefPos({});
         setOlPos({});setRoutes({});setIsCatch(false);setPCat(null);setShowGhost(false);
-        setContactData(null);setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp([]);setRpoData(null);setCommentary(null);setPracticeOverlay(null);
+        setContactData(null);setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp([]);setRpoData(null);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
         // Clear animation state
         visualPos.current = {};
         ballVisPos.current = { x:50, y:-3 };
@@ -2375,11 +2379,8 @@
             {(mode==="result"||mode==="touchdown")&&commentary&&(
               <div style={{position:"absolute",top:8,left:8,right:8,zIndex:38}}>
                 {/* Header badge */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{display:"inline-block",background:"linear-gradient(135deg,#0a1628,#162a4a)",padding:"3px 12px",borderRadius:"3px 3px 0 0",borderBottom:"2px solid #fbbf24",marginBottom:0}}>
-                    <span style={{fontSize:9,fontWeight:800,color:"#fbbf24",letterSpacing:2,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>🎙️ ANNOUNCER'S BOOTH</span>
-                  </div>
-                  <button onClick={()=>setCommentary(null)} style={{background:"rgba(10,22,40,0.92)",border:"1px solid #2a3a50",borderRadius:3,color:"#6a7a90",fontSize:8,fontWeight:700,padding:"2px 8px",cursor:"pointer",letterSpacing:1}}>DISMISS</button>
+                <div style={{display:"inline-block",background:"linear-gradient(135deg,#0a1628,#162a4a)",padding:"3px 12px",borderRadius:"3px 3px 0 0",borderBottom:"2px solid #fbbf24",marginBottom:0}}>
+                  <span style={{fontSize:9,fontWeight:800,color:"#fbbf24",letterSpacing:2,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>🎙️ ANNOUNCER'S BOOTH</span>
                 </div>
                 {/* Dan's line — blue accent stripe */}
                 {commentary.dan&&<div style={{display:"flex",marginBottom:2}}>
@@ -2390,13 +2391,15 @@
                   </div>
                 </div>}
                 {/* Kiki's line — gold accent stripe */}
-                {commentary.kiki&&<div style={{display:"flex"}}>
+                {commentary.kiki&&<div style={{display:"flex",marginBottom:2}}>
                   <div style={{width:4,flexShrink:0,background:"#f5a623",borderRadius:"0 0 0 2px"}}/>
                   <div style={{flex:1,background:"rgba(10,22,40,0.92)",padding:"6px 12px",backdropFilter:"blur(4px)",borderRadius:"0 0 4px 0"}}>
                     <span style={{fontSize:10,fontWeight:700,color:"#f5a623",marginRight:6,fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>KIKI</span>
                     <span style={{fontSize:13,color:"#ffecc4",fontWeight:600,lineHeight:1.5,fontStyle:"italic",fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>{commentary.kiki}</span>
                   </div>
                 </div>}
+                {/* DISMISS button — below commentary */}
+                <button onClick={()=>{if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);}} style={{width:"100%",background:"rgba(10,22,40,0.92)",border:"1px solid #2a3a50",borderRadius:"0 0 4px 4px",color:"#6a7a90",fontSize:9,fontWeight:700,padding:"4px 0",cursor:"pointer",letterSpacing:1}}>DISMISS</button>
               </div>
             )}
           </div>

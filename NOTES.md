@@ -8,6 +8,30 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 14.9.1 — Announcer Timing & Camera Fix (3 fixes)
+
+Backup: `tacfoot4-v21.html` (pre-ALPHA 14.9.1 state)
+
+#### FIX 1 — Announcer Booth DISMISS Placement
+- Removed auto-dismiss timer (was 4 seconds in 14.9 — players found it too abrupt)
+- Moved DISMISS button from header row to below Dan & Kiki commentary text
+- Full-width button with rounded bottom corners (0 0 4px 4px) for clean visual closure
+- Players can now read commentary at their own pace
+
+#### FIX 2 — Delayed Announcer Appearance
+- After play resolves, field result is visible for 1.5 seconds with NO overlay blocking it
+- Commentary is generated immediately but stored; displayed after 1500ms setTimeout
+- Timer properly cleared on play reset, new snap, and DISMISS click
+- No extra clicks or frozen states — purely visual delay on the commentary overlay
+
+#### FIX 3 — Camera Aggressive for Runners After Catch
+- Increased run/catch lookahead from 5 to 10 yards ahead of ball carrier
+- Variable lerp speed: 0.28 for active runners (was 0.20 globally), 0.20 for other modes
+- Snap behavior: if ball carrier is in top 20% of viewport, lerp jumps to 1.0 (instant catch-up)
+- Prevents runners from outpacing the camera and disappearing off the top of the screen
+
+---
+
 ### ALPHA 14.9 — Bug Fixes & Visual Improvements (6 fixes)
 
 Backup: `tacfoot4-v20.html` (pre-ALPHA 14.9 state)
