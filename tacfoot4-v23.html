@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.0.1</title>
+  <title>Tactical Football — ALPHA 15.0</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,9 +12,9 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback, useMemo, Fragment } = React;
 
-    const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
+    const FW = 680, FH = 540, PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.0.1";
+    const GAME_VERSION = "Version ALPHA 15.0";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -2477,8 +2477,8 @@
                     {cat:"trick",icon:"🎪",label:"TRICK",desc:[
             "Deception plays",
           ],col:"#a855f7"},
-                  ].map(c=>(<button key={c.cat} onClick={()=>{setPCat(c.cat);setMode("playcall");}} style={{...btn,flex:1,padding:"8px 8px",background:"#0e1520",border:`2px solid ${c.col}44`,color:c.col,fontSize:14,fontWeight:800}}>
-                    <div>{c.icon} {c.label}</div><div style={{fontSize:9,color:"#5a7090",fontWeight:400,marginTop:2}}>{Array.isArray(c.desc)?c.desc.join(" "):c.desc}</div>
+                  ].map(c=>(<button key={c.cat} onClick={()=>{setPCat(c.cat);setMode("playcall");}} style={{...btn,flex:1,padding:"14px 8px",background:"#0e1520",border:`2px solid ${c.col}44`,color:c.col,fontSize:15,fontWeight:800}}>
+                    <div>{c.icon} {c.label}</div><div style={{fontSize:10,color:"#5a7090",fontWeight:400,marginTop:4}}>{Array.isArray(c.desc)?c.desc.join(" "):c.desc}</div>
                   </button>))}
                 </div>
                 {game.dn===4&&<button onClick={()=>setMode("fourth")} style={{...btn,marginTop:8,width:"100%",padding:10,background:"#1a1510",border:"1px solid #4a3010",color:"#f97316",fontSize:13,fontWeight:700}}>🦵 KICK OPTIONS</button>}

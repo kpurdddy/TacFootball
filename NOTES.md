@@ -8,6 +8,20 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 15.0.1 — Field Height Fix (1 fix)
+
+Backup: `tacfoot4-v23.html` (pre-ALPHA 15.0.1 state)
+
+#### FIX 1 — Responsive Field Height
+- FH now computed dynamically: `Math.max(540, Math.floor(window.innerHeight * 0.74))`
+- Field fills 74% of viewport height (minimum 540px floor)
+- On 1080p: FH ≈ 799px. On 1440p: FH ≈ 1065px. On 900p: FH ≈ 666px.
+- PY still FH/42 so 42 yards always visible regardless of screen size
+- Play call buttons compacted: padding 14px→8px, font 15→14, description font 10→9
+- Field now dominates the screen as intended — buttons are a compact strip at the bottom
+
+---
+
 ### ALPHA 15.0 — The Field (8 fixes)
 
 Backup: `tacfoot4-v22.html` (pre-ALPHA 15.0 state)
