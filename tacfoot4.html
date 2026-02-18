@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 14.8.1</title>
+  <title>Tactical Football — ALPHA 14.9</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = 460, PY = FH / 38;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 14.8.1";
+    const GAME_VERSION = "Version ALPHA 14.9";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -873,60 +873,57 @@
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
 
-      // FIX 1 (14.7): Smart camera auto-scroll — keeps all action in view
+      // FIX 1 (14.7) + FIX 4 (14.9): Smart camera auto-scroll — aggressive tracking
       const camTarget = React.useRef(0);
       useEffect(() => {
         let t=0;
+        const viewYards=FH/PY; // ~38 yards visible
         if(["diff_select","menu","playcall","fourth"].includes(mode)){
-          t=0; // Pre-snap: center on LOS
+          t=0;
         } else if(mode==="presnap"){
-          t=0; // Formation view centered on LOS
+          t=0;
         } else if(["snapping","animating"].includes(mode)&&!isRun){
-          // During snap animation for pass plays — start panning toward receivers
+          // Pass plays — aggressively track deepest receiver
           const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
           const qy=qbP?.y||0;
           if(recYs.length>0){
             const deepest=Math.max(...recYs);
-            const midY=(deepest+qy)/2;
-            t=Math.max(0,midY-FH/(PY*2)*0.4);
+            // Bias toward showing receivers rather than centering — receivers are the action
+            t=Math.max(0,deepest-viewYards*0.65);
           }
         } else if(["decision","pressure"].includes(mode)){
-          // Passing decision: keep deepest receiver AND QB both visible
-          const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0);
+          // Keep ALL receivers AND QB visible — bias toward deepest
+          const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
           const qy=qbP?.y||0;
           const deepest=Math.max(...recYs,0);
           const shallowest=Math.min(qy,...recYs.filter(y=>y!==0));
-          // Center camera between QB and deepest receiver
-          const midY=(deepest+shallowest)/2;
-          // Ensure both extremes fit within viewport (FH/PY ≈ 38 yards visible)
-          const viewYards=FH/PY;
           const span=deepest-shallowest;
-          if(span>viewYards*0.7){
-            // Need to prioritize: show deepest receivers + QB area
-            t=midY-viewYards*0.15;
+          if(span>viewYards*0.8){
+            // Very wide spread — prioritize deepest receivers, QB might be near bottom
+            t=Math.max(0,deepest-viewYards*0.75);
           } else {
-            t=Math.max(0,midY-viewYards*0.2);
+            // Normal spread — center between shallowest and deepest, slight upfield bias
+            const midY=(deepest+shallowest)/2;
+            t=Math.max(0,midY-viewYards*0.3);
           }
         } else if(isRun||isCatch){
-          // Following ball carrier during runs/YAC
           const c=bcP||(bc==="qb"?qbP:null);
-          if(c) t=Math.max(0,c.y-3);
+          if(c) t=Math.max(0,c.y-5);
         } else if(mode==="result"||mode==="touchdown"){
-          // Result: show ball carrier's final position
           const c=bcP||(bc==="qb"?qbP:null);
           if(c) t=Math.max(0,c.y-5);
         }
         camTarget.current=t;
       },[mode,bcP,qbP,bc,phase,runAct,isRun,isCatch,offP]);
-      // Smooth lerp camera toward target
+      // Smooth lerp camera toward target — faster lerp for responsive tracking
       useEffect(()=>{
         let raf;
         const step=()=>{
           setCamY(prev=>{
             const diff=camTarget.current-prev;
-            if(Math.abs(diff)<0.1)return camTarget.current;
+            if(Math.abs(diff)<0.05)return camTarget.current;
             raf=requestAnimationFrame(step);
-            return prev+diff*0.12;
+            return prev+diff*0.2;
           });
         };
         raf=requestAnimationFrame(step);
@@ -935,6 +932,13 @@
 
       const yS=useCallback(y=>FH/2-(y-camY)*PY,[camY]);
       const xS=p=>(p/100)*FW;
+
+      // FIX 5 (14.9): Announcer booth auto-dismiss after 4 seconds
+      useEffect(()=>{
+        if(!commentary)return;
+        const t=setTimeout(()=>setCommentary(null),4000);
+        return ()=>clearTimeout(t);
+      },[commentary]);
 
       // Sync yS/xS and target positions to refs for rAF loop (zero React deps)
       useEffect(() => { ySRef.current = yS; }, [yS]);
@@ -1538,7 +1542,8 @@
                   setBcP(tackleP);setBallP({...tackleP});
                   setPbp(p=>[...p,"Tackled immediately"]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} but the defender was right there — tackled on contact.`);
-                  animThen(()=>endPlay(Math.round(tackleP.y),`${res.cId.toUpperCase()} catches and is tackled immediately for ${fmtYds(Math.round(tackleP.y))}`),ANIM);
+                  const tackler=catchNd.p?(catchNd.p.pos==="CB"?"cornerback":catchNd.p.pos==="S"?"safety":catchNd.p.pos==="LB"?"linebacker":"defender"):"defender";
+                  animThen(()=>endPlay(Math.round(tackleP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(Math.round(tackleP.y))} but gets tackled immediately by the ${tackler}`),ANIM);
                 } else if(catchNd.d<4){
                   // TIER 2: Defender 2-4 yards — one move, then tackled (~30% of catches)
                   maxContactsRef.current=1;
@@ -1557,8 +1562,8 @@
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more before the tackle!`);
                   animThen(()=>{
-                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches and runs into the ENDZONE!`);
-                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(totalYds)} in the open field`);
+                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`);
+                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space and picks up ${bonus} more before the tackle`);
                   },ANIM);
                 }
               }
@@ -2297,7 +2302,7 @@
             {Object.entries(offP).map(([id,pos])=>renderPlayer(id,pos,"off"))}
             {Object.entries(displayDefPos).map(([id,pos])=>renderPlayer(id,pos,"def"))}
             {renderBcOverlay()}
-            {/* On-field receiver openness labels */}
+            {/* On-field receiver openness labels + intended receiver highlight */}
             {["decision","pressure"].includes(mode)&&!isRun&&["wr1","wr2","te","rb"].map(id=>{
               const rp=offP[id];if(!rp)return null;
               const o=opn(id,offP,defPos,defSch);
@@ -2305,7 +2310,12 @@
               if(py<-40||py>FH+40)return null;
               const col=o.col;
               const lab=o.lab;
-              return <div key={`ol-${id}`} style={{position:"absolute",left:px-20,top:py-22,width:40,textAlign:"center",fontSize:8,fontWeight:800,color:col,zIndex:15,pointerEvents:"none",textShadow:"0 1px 3px rgba(0,0,0,0.8)"}}>{lab}</div>;
+              const isIntended=id===selPlay?.primary;
+              return <Fragment key={`ol-${id}`}>
+                {isIntended&&<div style={{position:"absolute",left:px-14,top:py-14,width:28,height:28,borderRadius:"50%",border:"3px solid #fbbf24",zIndex:14,pointerEvents:"none",boxShadow:"0 0 10px rgba(251,191,36,0.6), inset 0 0 6px rgba(251,191,36,0.3)"}}/>}
+                {isIntended&&<div style={{position:"absolute",left:px-30,top:py+14,width:60,textAlign:"center",fontSize:7,fontWeight:800,color:"#fbbf24",zIndex:15,pointerEvents:"none",textShadow:"0 1px 3px rgba(0,0,0,0.9)",letterSpacing:0.5}}>INTENDED</div>}
+                <div style={{position:"absolute",left:px-20,top:py-22,width:40,textAlign:"center",fontSize:8,fontWeight:800,color:col,zIndex:15,pointerEvents:"none",textShadow:"0 1px 3px rgba(0,0,0,0.8)"}}>{lab}</div>
+              </Fragment>;
             })}
             {/* On-field OL status indicators */}
             {!["diff_select","menu","playcall","fourth"].includes(mode)&&!isRun&&OL_IDS.map(olId=>{
@@ -2594,17 +2604,20 @@
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
                   <div style={{fontSize:11,color:"#fbbf24",fontWeight:700}}>🏈 QB DECISION</div>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1}}>
                     {Object.keys(matchups).length>0&&(()=>{
                       const lPct=cl(pLR.left,0,100)/100;
                       const rPct=cl(pLR.right,0,100)/100;
                       const barCol=p=>p>0.6?"#22c55e":p>0.3?"#fbbf24":"#ef4444";
-                      return <>
-                        <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0"}}>L Pocket</span>
-                        <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*lPct,height:6,background:barCol(lPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
-                        <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0"}}>R Pocket</span>
-                        <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*rPct,height:6,background:barCol(rPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
-                      </>;
+                      return <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                        <span style={{fontSize:7,fontWeight:700,color:"#6a7a90",letterSpacing:1}}>POCKET INTEGRITY</span>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0",width:22,textAlign:"right"}}>Left</span>
+                          <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*lPct,height:6,background:barCol(lPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
+                          <span style={{fontSize:7,fontWeight:700,color:"#8a9ab0",width:24,textAlign:"right"}}>Right</span>
+                          <div style={{width:40,height:6,background:"#1a2540",borderRadius:3,overflow:"hidden"}}><div style={{width:40*rPct,height:6,background:barCol(rPct),borderRadius:3,transition:"width 0.3s ease, background 0.3s ease"}}/></div>
+                        </div>
+                      </div>;
                     })()}
                     <div style={{fontSize:10,color:"#5a7090"}}>Phase {phase}</div>
                   </div>

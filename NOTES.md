@@ -8,6 +8,52 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 14.9 — Bug Fixes & Visual Improvements (6 fixes)
+
+Backup: `tacfoot4-v20.html` (pre-ALPHA 14.9 state)
+
+#### FIX 1 — Intended Receiver On-Field Highlighting
+- Gold glowing ring (3px solid #fbbf24) around the intended receiver's circle on the field
+- "INTENDED" label positioned below the receiver in gold
+- Gold box-shadow glow (10px spread) for immediate visibility
+- Only visible during decision/pressure modes (pass plays)
+- The play's designed receiver is now visible at a glance without reading buttons
+
+#### FIX 2 — Pocket Integrity Layout Redesign
+- Added centered "POCKET INTEGRITY" header (7px, letter-spaced) above the bars
+- Changed layout to "Left [bar] Right [bar]" format, centered as a column
+- Replaced "L Pocket" / "R Pocket" inline labels with cleaner "Left" / "Right"
+- Players now understand what the bars measure without guessing
+
+#### FIX 3 — YAC Explanation in Result Text (Fixed from 14.8.1)
+- Root cause: `endPlay()` calls `setNarr("")` which wiped the narration before players could read it
+- Fix: moved the YAC explanation into the `desc` parameter (result card text) instead of just `narr`
+- Tier 1 (<2yd): "catches for +17 but gets tackled immediately by the cornerback"
+- Tier 3 (4+yd): "catches for +15 in space and picks up 6 more before the tackle"
+- Uses real position names (cornerback/safety/linebacker) based on the nearest defender
+- Tier 2 (2-4yd) unchanged — enters runner mode where the player makes a move
+
+#### FIX 4 — Camera Scroll (Aggressive Rewrite)
+- Increased lerp factor from 0.12 to 0.20 — camera now keeps up with fast-moving action
+- Snap/animation: camera biases toward deepest receiver (was centering between QB and receiver)
+- Decision/pressure: prioritizes showing deepest receivers when spread is wide (>80% of viewport)
+- Normal spread: centers with upfield bias (30% offset) instead of centering exactly
+- Run/catch: increased lookahead from 3 to 5 yards ahead of ball carrier
+- Convergence threshold tightened from 0.1 to 0.05 yards for smoother stops
+- Deep passes should no longer result in receivers going off-screen
+
+#### FIX 5 — Announcer Booth Auto-Dismiss
+- Commentary overlay now auto-dismisses after 4 seconds
+- DISMISS button still available for immediate close
+- Uses useEffect with setTimeout, properly cleaned up on unmount
+- Players no longer need to manually dismiss every play
+
+#### FIX 6 — LICENSE File
+- Created `LICENSE` file: "Copyright (c) 2026 SL Flanagan, All Rights Reserved"
+- Code may not be used, copied, modified, or distributed without explicit written permission
+
+---
+
 ### ALPHA 14.8.1 — Text Clarity & Visual Feedback (9 fixes)
 
 Backup: `tacfoot4-v19.html` (pre-ALPHA 14.8.1 state)
@@ -781,7 +827,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.8.1 — text clarity, visual feedback) |
+| tacfoot4.html | Current working version (ALPHA 14.9 — bug fixes, visual improvements) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -798,6 +844,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v14.html | Before ALPHA 14.4 (visual clarity overhaul) |
 | tacfoot4-v15.html | Before ALPHA 14.5 (screen layout + splash screen) |
 | tacfoot4-v16.html | Before ALPHA 14.6 (gameplay fixes) |
+| tacfoot4-v20.html | Before ALPHA 14.9 (bug fixes, visual improvements) |
 | tacfoot4-v19.html | Before ALPHA 14.8.1 (text clarity, visual feedback) |
 | tacfoot4-v18.html | Before ALPHA 14.8 (splash screen polish) |
 | tacfoot4-v17.html | Before ALPHA 14.7 (camera scroll + gameplay) |
