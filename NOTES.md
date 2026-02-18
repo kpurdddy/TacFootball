@@ -8,6 +8,68 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-17
 
+### ALPHA 15.0 — The Field (8 fixes)
+
+Backup: `tacfoot4-v22.html` (pre-ALPHA 15.0 state)
+
+#### FIX 1 — Full Field With Goal Lines and End Zones
+- End zones rendered as colored rectangles beyond both goal lines (opponent=dark red, own=dark blue)
+- "END ZONE" text centered in each end zone when visible
+- Bold white goal lines at both ends of the field (opponent's is 4px with glow, own is 3px)
+- Line of scrimmage changed from gold to blue (TV broadcast style)
+- First down marker stays yellow/gold with glow
+- Yard line count increased from 28 to 50 (covers full 125-yard span centered on camera)
+- Yard lines clipped to 0-100 range (no yard lines in end zones, matching real football)
+- Yard numbers slightly more visible (opacity 0.18, up from 0.15)
+
+#### FIX 2 — Camera Hard Clamp: Ball Carrier Never Leaves Screen
+- NEW APPROACH: Render-time safety net via `effectiveCamY` useMemo
+- If ball carrier's screen position is in top 15% of viewport, camera instantly snaps to put them at 40% from top
+- This override happens at RENDER TIME, not in the lerp loop — no state update delay can cause off-screen
+- The smooth lerp system still handles normal tracking (0.28 lerp for runners)
+- Removed `camY` from camera target useEffect dependency array (prevents wasteful re-runs)
+- Should finally fix deep catches with YAC where runner outpaces camera
+
+#### FIX 3 — Field Size Taller
+- FH increased from 460 to 540 pixels (17% taller field area)
+- PY changed from FH/38 to FH/42 (42 yards visible instead of 38, each yard ~12.9px)
+- Scoreboard margin reduced from 8px to 2px, padding from 6px to 4px
+- Controls top margin reduced from 6px to 2px
+- Field now dominates the screen as intended
+
+#### FIX 4 — Bounce Outside Per-Click Gain Increased
+- When edge IS clear (75-85% success): ydsLow raised from 0 to 4, ydsHigh capped at 8
+- Clear edge now gives 4-8 yards per successful click (was 0-20, often 2-3)
+- When edge is blocked (25-35% success): unchanged (0 to gambleYds)
+- Reward now matches the risk/opportunity shown in the percentages
+
+#### FIX 5 — DISMISS Button Styling
+- Changed from full-width banner to normal-sized left-aligned button
+- Padding: 3px 12px, borderRadius: 3, display: inline-block
+- Sits below Dan & Kiki text as a discrete button, not a footer bar
+
+#### FIX 6 — "Drop Back" → "Wait" at Phase 2+
+- Phase 1: Still "Drop Back" (QB is actually dropping back)
+- Phase 2+: Renamed to "Wait"
+- Default subtitle at Phase 2+: "Let the routes develop"
+- Pressure warnings still override: "Pocket collapsing — risky!" and "Pressure building"
+
+#### FIX 7 — Pressure Alerts as On-Screen Text
+- Broadcast-style alerts appear center-screen on the field when pressure changes
+- "POCKET COLLAPSING" (red) when pocket integrity drops below 30%
+- "PRESSURE BUILDING" (yellow) when pocket integrity drops below 50%
+- "[RECEIVER] WIDE OPEN" (green) when any receiver hits WIDE OPEN status (once per play)
+- Alerts scale in at 115%, hold for ~1.5s, then fade out over 2s total
+- CSS animation: alertFade keyframe with scale and opacity transitions
+- pointerEvents:none — never blocks gameplay buttons
+- Detection via useEffect watching `pi` transitions with `prevPiRef` tracking
+
+#### FIX 8 — Announcer Delay Increased
+- Commentary delay increased from 1500ms to 2750ms
+- Players now have nearly 3 seconds to see the field result before announcer booth appears
+
+---
+
 ### ALPHA 14.9.1 — Announcer Timing & Camera Fix (3 fixes)
 
 Backup: `tacfoot4-v21.html` (pre-ALPHA 14.9.1 state)
