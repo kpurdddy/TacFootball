@@ -8,6 +8,45 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-18
 
+### ALPHA 15.2 — Phantom Tackle Root Cause Fix (3 upstream paths + 1 visual polish)
+
+Backup: `tacfoot4-v27.html` (pre-ALPHA 15.2 state)
+
+Context: Phantom tackles survived 5 previous fix attempts because all patches targeted endPlay(). The actual problem was upstream — three code paths called endPlay() when no defender was close, instead of letting the runner keep running. The universal gate from 15.1.2 stays as a last-resort safety net.
+
+#### FIX 1 — Catch Tier 3: Enter Runner Mode Instead of Auto-Ending
+- Tier 3 catch (defender 4+ yards away) previously gave bonus yards then called endPlay() — phantom tackle
+- Now enters full runner mode: bonus 3-8 yards, pursue defenders, compute run arrows, set coach advice
+- No maxContacts limit (unlike Tier 2) — open field catch means full contact allowance
+- Play only ends when: runner reaches end zone (TD), defender actually arrives, or player chooses Dive Forward
+- TD check preserved for catches that reach the end zone
+
+#### FIX 2 — doRun Open Field: Continue Running Instead of Auto-Ending
+- "YAC REDUCTION" block (nearbyCount===0, ra>=2) previously gave bonus yards then called endPlay() — phantom tackle
+- Now gives the bonus yards but falls through to runner mode instead of ending the play
+- Runner stays in runner mode, picks another direction, pursue() brings defenders closer each turn
+- TD check preserved — still ends play if bonus yards reach end zone
+
+#### FIX 3 — resolveContact Max Contacts: Re-enter Runner Mode When Open
+- When runner breaks max tackles and nd2.d >= 3 (no defender within 3 yards), previously called endPlay() — phantom tackle
+- Now gives 2-5 bonus yards, pursues defenders, computes run arrows, re-enters runner mode
+- Next real tackle (nd.d < 2 in doRun) will auto-tackle since tacklesBroken >= maxContacts — correct behavior
+- TD check added for bonus yards reaching end zone
+
+#### FIX 4 — Visual Snap on Legitimate Tackles (Cosmetic Polish)
+- In doRun() when nd.d < 2 triggers tackle/contact, the tackling defender's dot now teleports onto the runner
+- Updates defPos state, renderedDef, and visualPos.current so animation engine doesn't drift them apart
+- Defender snapped to (runner.x + 0.5, runner.y - 0.5) for visual overlap
+- Makes legitimate tackles look correct — defender dot lands on runner when contact happens
+
+#### Verification Scenarios
+1. WR catches 6+ yards from defender → enters runner mode (not auto-ended) ✓
+2. RB runs 3+ times with nobody within 3 yards → stays in runner mode (not auto-ended) ✓
+3. Runner breaks max tackles with nobody close → re-enters runner mode (not auto-ended) ✓
+4. Runner tackled by nearby defender → defender dot snaps onto runner ✓
+
+---
+
 ### ALPHA 15.1.2 — Universal Phantom Tackle Fix + Result Text + Pocket Integrity (3 fixes)
 
 Backup: `tacfoot4-v26.html` (pre-ALPHA 15.1.2 state)
@@ -1018,7 +1057,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.1.2 — universal phantom tackle gate, result text fix, pocket centering) |
+| tacfoot4.html | Current working version (ALPHA 15.2 — phantom tackle root cause fix, 3 upstream paths + visual polish) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |

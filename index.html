@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.1.2</title>
+  <title>Tactical Football — ALPHA 15.2</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.1.2";
+    const GAME_VERSION = "Version ALPHA 15.2";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -1764,17 +1764,22 @@
                   setCoach(coachRunner(tp,ndp,arrows,game,coachType));
                   animThen(()=>setMode("runner"),ANIM);
                 } else {
-                  // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
+                  // FIX 1 (15.2): TIER 3 — Defender 4+ yards — open field, enter runner mode
                   const bonus=rnd(3,8);
-                  const totalYds=res.yds+bonus;
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more!`);
-                  animThen(()=>{
-                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`);
-                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space and picks up ${bonus} more before being brought down`);
-                  },ANIM);
+                  if(game.bo+Math.round(nP.y)>=100){
+                    animThen(()=>endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`),ANIM);
+                  } else {
+                    // Open field catch — full runner mode, no contact limit
+                    setRunAct(0);
+                    const ndp=pursue(dp,nP,1);setDefPos(ndp);
+                    const arrows=computeRunArrows(nP,ndp,game,0);setRunArrows(arrows);
+                    setCoach(coachRunner(nP,ndp,arrows,game,coachType));
+                    animThen(()=>setMode("runner"),ANIM);
+                  }
                 }
               }
             },flightMs);
@@ -1939,16 +1944,22 @@
           const arrows=computeRunArrows(nP,ndp,game,runAct);setRunArrows(arrows);
           if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),"Breaks free into the ENDZONE!");
           else if(tacklesBroken.current>=maxContactsRef.current){
-            // FIX 1 (15.1.1): Max contacts — check proximity before "brought down"
+            // FIX 3 (15.2): Max contacts — check proximity; if open, re-enter runner mode
             const nd2=nearD(nP,ndp);
             if(nd2.d<3){
               animThen(()=>endPlay(Math.round(nP.y),`Brought down for ${fmtYds(Math.round(nP.y))} after breaking free`),ANIM);
             } else {
-              // No defender close — bonus yards then corralled
+              // No defender close — bonus yards then back to runner mode
               const bonus2=rnd(2,5);
               const fP=R(nP.x+rnd(-3,3),nP.y+bonus2);
               setBcP(fP);setBallP({...fP});
-              animThen(()=>endPlay(Math.round(fP.y),`Breaks free and gains ${fmtYds(Math.round(fP.y))} before finally being corralled`),ANIM);
+              if(game.bo+Math.round(fP.y)>=100){animThen(()=>endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!"),ANIM);}
+              else {
+                const ndp2=pursue(ndp,fP,runAct+1);setDefPos(ndp2);
+                const arr2=computeRunArrows(fP,ndp2,game,runAct);setRunArrows(arr2);
+                setCoach(coachRunner(fP,ndp2,arr2,game,coachType));
+                animThen(()=>setMode("runner"),ANIM);
+              }
             }
           }
           else animThen(()=>setMode("runner"),ANIM);
@@ -2048,6 +2059,12 @@
         if(nd.d<2){
           const dp=renderedDef[nd.id];
           console.log(`[TACKLE] ${nd.p?.lab||nd.id} at ${nd.d.toFixed(2)}yds | Def:(${dp?.x.toFixed(1)},${dp?.y.toFixed(1)}) BC:(${np.x.toFixed(1)},${np.y.toFixed(1)})`);
+          // FIX 4 (15.2): Visual snap — teleport tackling defender onto runner so dots overlap
+          const snappedPos=R(np.x+0.5,np.y-0.5);
+          renderedDef[nd.id]=snappedPos;
+          const snapDef={...ndp,[nd.id]:snappedPos};
+          setDefPos(snapDef);
+          visualPos.current[`def-${nd.id}`]={...snappedPos};
           if(nd.d<=1.5||tacklesBroken.current>=maxContactsRef.current){
             // Immediate tackle — no contact decision
             animThen(()=>endPlay(Math.round(np.y),`Brought down for ${fmtYds(Math.round(np.y))}`),ANIM);
@@ -2057,15 +2074,15 @@
           return;
         }
 
-        // YAC REDUCTION: if nobody within 3 yards in open field, auto-run
+        // FIX 2 (15.2): Open field — if nobody within 3 yards, stay in runner mode (don't auto-end)
         const nearbyCount=Object.values(renderedDef).filter(d=>dst(np,d)<3).length;
         if(nearbyCount===0&&ra>=2){
-          // Open field — auto gain and end play
           const bonus=rnd(2,4);
           const finalP=R(np.x+rnd(-3,3),np.y+bonus);
           setBcP(finalP);setBallP({...finalP});
           if(game.bo+Math.round(finalP.y)>=100){endPlay(Math.round(finalP.y),`${bc.toUpperCase()} breaks into the ENDZONE!`);return;}
-          endPlay(Math.round(finalP.y),`Runs free for ${fmtYds(Math.round(finalP.y))}`);return;
+          // Don't end play — let runner keep running. Fall through to runner mode below.
+          np=finalP;
         }
 
         animThen(()=>setMode("runner"),ANIM);
