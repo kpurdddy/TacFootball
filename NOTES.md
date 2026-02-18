@@ -8,6 +8,30 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-18
 
+### ALPHA 15.1.2 — Universal Phantom Tackle Fix + Result Text + Pocket Integrity (3 fixes)
+
+Backup: `tacfoot4-v26.html` (pre-ALPHA 15.1.2 state)
+
+#### FIX 1 — Universal Phantom Tackle Gate
+- Previous per-path patches (14.7, 14.9, 15.1.1) still allowed phantom tackles through unchecked code paths
+- NEW APPROACH: Single universal check inside `endPlay()` itself — catches ALL upstream paths
+- Before ending any tackle play, verifies a defender is within 3 yards of ball carrier's current position
+- Uses visual positions (from `visualPos.current`) with fallback to `defPos` game state
+- If NO defender close: gives 3-6 bonus yards, updates carrier position, rewrites description to "breaks free and picks up X before finally being corralled"
+- Check SKIPS: touchdowns, incompletions, turnovers (only applies to tackle/brought-down plays)
+- This is a safety net — it's now impossible for a play to end with a tackle and no defender nearby
+
+#### FIX 2 — Result Text No Longer Cut Off
+- Removed `overflow:hidden`, `textOverflow:ellipsis`, and `whiteSpace:nowrap` from result bar text
+- Long descriptions like "picks up 7 more before being brought down" now wrap to multiple lines
+- Reduced font from 13px to 12px with `lineHeight:1.3` for clean multi-line display
+
+#### FIX 3 — Centered Pocket Integrity Display
+- Changed Pocket Integrity container alignment from `flex-end` (right-aligned) to `center`
+- Header + Left/Right bars now centered horizontally in the QB Decision header
+
+---
+
 ### ALPHA 15.1.1 — Phantom Tackle Fix + Sound Improvements (3 fixes)
 
 Backup: `tacfoot4-v25.html` (pre-ALPHA 15.1.1 state)
@@ -994,7 +1018,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.1.1 — phantom tackle fix, tick sound, improved SFX) |
+| tacfoot4.html | Current working version (ALPHA 15.1.2 — universal phantom tackle gate, result text fix, pocket centering) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
