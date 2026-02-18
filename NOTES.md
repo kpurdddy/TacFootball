@@ -8,6 +8,33 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-18
 
+### ALPHA 15.1.1 — Phantom Tackle Fix + Sound Improvements (3 fixes)
+
+Backup: `tacfoot4-v25.html` (pre-ALPHA 15.1.1 state)
+
+#### FIX 1 — Phantom Tackle Investigation & Fix
+- Traced all endPlay() paths related to running/catching — found 3 root causes:
+  1. **Catch Tier 1 visual fallback**: `visualDefs` fell back to game-state positions when visual entries missing, causing stale distances to trigger false immediate tackles. Fixed with `effectiveDist = Math.max(catchNd.d, gameNd.d * 0.7)` sanity check — game-state distance acts as a floor.
+  2. **Catch Tier 3 text**: Said "before the tackle" when defender was 4+ yards away. Changed to "before being brought down".
+  3. **resolveContact max contacts**: Ended play with "Brought down" after breaking free with no proximity check. Added `nearD` check — if no defender within 3 yards, gives bonus 2-5 yards and says "corralled" instead.
+
+#### FIX 2 — UI Tick Sound on All Buttons
+- Added `SFX.tick()` — subtle 1800→600Hz sine chirp, 0.05s duration, very low volume (0.08)
+- Wired via event delegation: single `mousedown` listener on document captures all button clicks
+- Covers every button, clickable span, and menu selection throughout the game
+- Respects mute toggle — no tick when muted
+
+#### FIX 3 — Improved Sound Effects
+- All 5 existing sounds rewritten with layered synthesis:
+  - **Snap**: triangle wave pop (300→60Hz) + high-passed noise transient for leather texture. Punchier, less buzzy.
+  - **Tackle**: deep sub-bass thud (55→20Hz) + low-passed noise burst for body impact. More physical, less synthy.
+  - **Crowd**: bandpass noise (600→1800→1200Hz) with lowpass at 3kHz, swell-up envelope. More like a roar, less static.
+  - **Whistle**: higher pitch (2600→2200→2000Hz), proper two-tone ref whistle shape. Cleaner, more realistic.
+  - **Sack buzz**: sawtooth growl (80→35Hz) + soft-clipped square wave (120→60Hz) via WaveShaper. Harsh but not grating.
+- All sounds use `const t=ctx.currentTime` for consistency
+
+---
+
 ### ALPHA 15.1 — Sound, Camera, Cleanup (4 fixes)
 
 Backup: `tacfoot4-v24.html` (pre-ALPHA 15.1 state)
@@ -967,7 +994,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.1 — sound, camera, cleanup) |
+| tacfoot4.html | Current working version (ALPHA 15.1.1 — phantom tackle fix, tick sound, improved SFX) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
