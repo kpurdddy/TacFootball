@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.0.1</title>
+  <title>Tactical Football — ALPHA 15.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.0.1";
+    const GAME_VERSION = "Version ALPHA 15.1";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -803,8 +803,73 @@
       </div>);
     }
 
+    // ==================== SOUND EFFECTS (Web Audio API) ====================
+    let _sfxCtx=null;
+    function sfxCtx(){
+      if(!_sfxCtx)_sfxCtx=new(window.AudioContext||window.webkitAudioContext)();
+      if(_sfxCtx.state==="suspended")_sfxCtx.resume();
+      return _sfxCtx;
+    }
+    const SFX={
+      snap(ctx){
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.type="square";o.frequency.setValueAtTime(220,ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(80,ctx.currentTime+0.06);
+        g.gain.setValueAtTime(0.25,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.08);
+        o.start(ctx.currentTime);o.stop(ctx.currentTime+0.08);
+      },
+      tackle(ctx){
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.type="sine";o.frequency.setValueAtTime(70,ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(30,ctx.currentTime+0.15);
+        g.gain.setValueAtTime(0.35,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
+        o.start(ctx.currentTime);o.stop(ctx.currentTime+0.2);
+      },
+      crowd(ctx){
+        const len=ctx.sampleRate*0.35,buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);
+        for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+        const s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+        s.buffer=buf;f.type="bandpass";f.frequency.setValueAtTime(900,ctx.currentTime);
+        f.frequency.linearRampToValueAtTime(2200,ctx.currentTime+0.15);f.Q.value=0.5;
+        s.connect(f);f.connect(g);g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.12,ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.25,ctx.currentTime+0.1);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
+        s.start(ctx.currentTime);s.stop(ctx.currentTime+0.35);
+      },
+      whistle(ctx){
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.type="sine";o.frequency.setValueAtTime(880,ctx.currentTime);
+        o.frequency.setValueAtTime(780,ctx.currentTime+0.08);
+        g.gain.setValueAtTime(0.12,ctx.currentTime);
+        g.gain.setValueAtTime(0.12,ctx.currentTime+0.1);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
+        o.start(ctx.currentTime);o.stop(ctx.currentTime+0.2);
+      },
+      sackBuzz(ctx){
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.type="sawtooth";o.frequency.setValueAtTime(100,ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(50,ctx.currentTime+0.25);
+        g.gain.setValueAtTime(0.2,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+        o.start(ctx.currentTime);o.stop(ctx.currentTime+0.3);
+      }
+    };
+
     // ==================== MAIN COMPONENT ====================
     function TacticalFootball() {
+      // FIX 3 (15.1): Sound mute state + helper
+      const [sfxMuted, setSfxMuted] = useState(false);
+      const sfxMuteRef = React.useRef(false);
+      useEffect(()=>{sfxMuteRef.current=sfxMuted;},[sfxMuted]);
+      const sfx=useCallback((fn)=>{if(!sfxMuteRef.current)try{fn(sfxCtx());}catch(e){}},[]);
+
       const [coachType, setCoachType] = useState(null);
       const [diff, setDiff] = useState(null); 
       const [game, setGame] = useState({bo:25,dn:1,dst:10,sc:{you:0,cpu:0},q:1,pr:0,lastPlays:[]});
@@ -880,7 +945,7 @@
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
 
-      // FIX 1 (14.7) + FIX 4 (14.9) + FIX 2 (15.0): Smart camera with hard clamp
+      // FIX 1 (15.1): Camera biased 70/30 upfield — player sees where they're headed
       const camTarget = React.useRef(0);
       const camLerp = React.useRef(0.2);
       useEffect(() => {
@@ -895,7 +960,7 @@
           const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
           if(recYs.length>0){
             const deepest=Math.max(...recYs);
-            t=Math.max(0,deepest-viewYards*0.65);
+            t=Math.max(0,deepest-viewYards*0.55);
           }
         } else if(["decision","pressure"].includes(mode)){
           const recYs=["wr1","wr2","te","rb"].map(id=>offP[id]?.y||0).filter(y=>y>0);
@@ -904,17 +969,17 @@
           const shallowest=Math.min(qy,...recYs.filter(y=>y!==0));
           const span=deepest-shallowest;
           if(span>viewYards*0.8){
-            t=Math.max(0,deepest-viewYards*0.75);
+            t=Math.max(0,deepest-viewYards*0.55);
           } else {
             const midY=(deepest+shallowest)/2;
-            t=Math.max(0,midY-viewYards*0.3);
+            t=Math.max(0,midY-viewYards*0.2);
           }
         } else if(isRun||isCatch){
           const c=bcP||(bc==="qb"?qbP:null);
-          if(c){ t=Math.max(0,c.y-10); lerp=0.28; }
+          if(c){ t=Math.max(0,c.y-2); lerp=0.28; }
         } else if(mode==="result"||mode==="touchdown"){
           const c=bcP||(bc==="qb"?qbP:null);
-          if(c) t=Math.max(0,c.y-5);
+          if(c) t=Math.max(0,c.y-2);
         }
         camTarget.current=t;
         camLerp.current=lerp;
@@ -934,20 +999,20 @@
         return ()=>cancelAnimationFrame(raf);
       },[camTarget.current]);
 
-      // FIX 2 (15.0): Hard clamp — ball carrier NEVER leaves screen
-      // Render-time safety net: if BC is in top 15%, snap camera to put them at 40%
+      // Hard clamp — ball carrier NEVER leaves screen (render-time safety net)
       const effectiveCamY = useMemo(() => {
         if ((isRun || isCatch || mode==="runner" || mode==="contact") && (bcP || (bc==="qb" && qbP))) {
           const c = bcP || qbP;
-          const screenY = FH/2 - (c.y - camY) * PY;
+          const screenY = FH*0.7 - (c.y - camY) * PY;
           if (screenY < FH * 0.15) {
-            return Math.max(0, c.y - (FH * 0.4) / PY);
+            return Math.max(0, c.y - (FH * 0.35) / PY);
           }
         }
         return camY;
       }, [camY, isRun, isCatch, mode, bcP, bc, qbP]);
 
-      const yS=useCallback(y=>FH/2-(y-effectiveCamY)*PY,[effectiveCamY]);
+      // 70% of screen shows upfield, 30% behind — action framed in lower 30%
+      const yS=useCallback(y=>FH*0.7-(y-effectiveCamY)*PY,[effectiveCamY]);
       const xS=p=>(p/100)*FW;
 
       // Sync yS/xS and target positions to refs for rAF loop (zero React deps)
@@ -1273,6 +1338,7 @@
       };
 
       const snap=()=>{
+        sfx(SFX.snap);
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
         setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(false);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
@@ -1394,6 +1460,12 @@
         if(commentaryTimer.current)clearTimeout(commentaryTimer.current);
         commentaryTimer.current=setTimeout(()=>setCommentary(comm),2750);
         setDebrief(postPlayDebrief(res,selPlay,defSch,matchups,diff));
+        // FIX 3 (15.1): Sound effects
+        if(res.td){ sfx(SFX.crowd); }
+        else if(res.turnover||yds<0){ sfx(SFX.sackBuzz); }
+        else if(yds>=15){ sfx(SFX.crowd); setTimeout(()=>sfx(SFX.whistle),300); }
+        else if(!res.incomplete){ sfx(SFX.tackle); setTimeout(()=>sfx(SFX.whistle),200); }
+        else { sfx(SFX.whistle); }
       };
 
       const animThen=(fn,minDelay)=>{
@@ -2297,6 +2369,7 @@
             <div style={{textAlign:"center"}}><div style={{fontSize:14,fontWeight:800,color:"#fbbf24",letterSpacing:1}}>{GAME_VERSION}</div></div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <div style={{textAlign:"right"}}><div style={{fontSize:14,fontWeight:700}}>{dlS} & {game.dst}</div><div style={{fontSize:11,color:"#5a7090"}}>{blS} · Q{game.q}</div></div>
+              <button onClick={()=>setSfxMuted(m=>!m)} title={sfxMuted?"Unmute":"Mute"} style={{...btn,padding:"6px 10px",background:"#1a2540",border:"1px solid #4a6080",color:sfxMuted?"#6a7a90":"#d0dce8",fontSize:12,fontWeight:700,cursor:"pointer",borderRadius:6}}>{sfxMuted?"🔇":"🔊"}</button>
               <button onClick={()=>setShowMenuConfirm(true)} style={{...btn,padding:"6px 10px",background:"#1a2540",border:"1px solid #4a6080",color:"#d0dce8",fontSize:12,fontWeight:700,cursor:"pointer",borderRadius:6}}>☰</button>
             </div>
           </div>
@@ -2443,8 +2516,8 @@
                     <span style={{fontSize:13,color:"#ffecc4",fontWeight:600,lineHeight:1.5,fontStyle:"italic",fontFamily:"'Segoe UI','Helvetica Neue',Arial,sans-serif"}}>{commentary.kiki}</span>
                   </div>
                 </div>}
-                {/* FIX 5 (15.0): DISMISS button — normal size, left-aligned */}
-                <button onClick={()=>{if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);}} style={{background:"rgba(10,22,40,0.92)",border:"1px solid #2a3a50",borderRadius:3,color:"#6a7a90",fontSize:9,fontWeight:700,padding:"3px 12px",cursor:"pointer",letterSpacing:1,marginTop:2,display:"inline-block"}}>DISMISS</button>
+                {/* FIX 2 (15.1): DISMISS button — normal size, right-aligned */}
+                <div style={{textAlign:"right",marginTop:2}}><button onClick={()=>{if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);}} style={{background:"rgba(10,22,40,0.92)",border:"1px solid #2a3a50",borderRadius:3,color:"#6a7a90",fontSize:9,fontWeight:700,padding:"3px 12px",cursor:"pointer",letterSpacing:1}}>DISMISS</button></div>
               </div>
             )}
           </div>

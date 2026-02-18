@@ -6,6 +6,47 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ---
 
+## Changes Made 2026-02-18
+
+### ALPHA 15.1 — Sound, Camera, Cleanup (4 fixes)
+
+Backup: `tacfoot4-v24.html` (pre-ALPHA 15.1 state)
+
+#### FIX 1 — Camera Bias 70/30 Upfield
+- Changed yS anchor from FH/2 (50/50) to FH*0.7 (70/30 upfield)
+- 70% of visible field now shows what's AHEAD, 30% shows what's behind
+- Adjusted all camera target offsets for the new bias:
+  - Snapping/animating: deepest receiver at ~15% from top (offset 0.55 viewYards)
+  - Decision: midpoint at ~50% from top (offset 0.2 viewYards)
+  - Runner/catch: ball carrier at ~70% from top (offset 2 yards behind)
+  - Result: same as runner
+- Hard clamp updated to use FH*0.7 for screenY calculation
+- Player always sees where they're headed — much better spatial awareness
+
+#### FIX 2 — DISMISS Button Right-Aligned
+- Moved DISMISS button from left-aligned to right-aligned below announcer text
+- Wrapped in a textAlign:right div
+
+#### FIX 3 — Sound Effects (Web Audio API)
+- All sounds generated in code — no external files, no base64, single-file preserved
+- Sounds implemented:
+  - **Snap pop**: short square-wave percussive hit on play start
+  - **Tackle thud**: low sine-wave thump on normal tackles
+  - **Crowd cheer**: bandpass-filtered noise burst on big plays (15+ yds) and touchdowns
+  - **Whistle**: sine tone (880→780Hz) on play dead
+  - **Sack/turnover buzz**: sawtooth wave on sacks and interceptions
+- Trigger points: snap() for snap, endPlay() with logic for TD/turnover/big play/tackle/incomplete
+- Mute toggle: speaker button (🔊/🔇) in scoreboard next to hamburger menu
+- AudioContext created lazily on first sound (respects browser autoplay policy)
+- Volumes kept low — accents, not blasting
+
+#### FIX 4 — NOTES.md Cleanup
+- Standing Instructions: simplified copy paragraph to "thumb drive: TacFootball folder"
+- File Inventory: updated tacfoot4.html description to ALPHA 15.1
+- Removed stale desktop copy line (C:\Users\obrie\Desktop)
+
+---
+
 ## Changes Made 2026-02-17
 
 ### ALPHA 15.0.1 — Field Height Fix (1 fix)
@@ -915,8 +956,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 ## Standing Instructions
 
 - **Always backup** tacfoot4.html to `tacfoot4-v{N}.html` before making edits — auto-increment, check folder for existing versions first
-- **Always copy** final result to ALL THREE: `F:\TacFootball\tacfoot4.html`, `C:\Users\Lash2\Desktop\TacFoot\index.html`, and `C:\Users\Lash2\Desktop\TacFootball\index.html`
-- **Also copy** NOTES.md to all three locations
+- **Always copy** final result to the thumb drive: tacfoot4.html, index.html, and NOTES.md to the TacFootball folder.
 - **Use line-level edits only** — no rewriting entire functions, no regenerating blocks. Find the specific lines and change only those.
 - **Ask before acting** — discuss issues before fixing; don't assume the user wants a fix applied immediately
 - **Don't apply Claude Opus suggestions blindly** — verify independently (past bad diagnosis: pressure penalty theory vs actual double-roll bug)
@@ -927,7 +967,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 14.9 — bug fixes, visual improvements) |
+| tacfoot4.html | Current working version (ALPHA 15.1 — sound, camera, cleanup) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
@@ -948,5 +988,4 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 | tacfoot4-v19.html | Before ALPHA 14.8.1 (text clarity, visual feedback) |
 | tacfoot4-v18.html | Before ALPHA 14.8 (splash screen polish) |
 | tacfoot4-v17.html | Before ALPHA 14.7 (camera scroll + gameplay) |
-| C:\Users\obrie\Desktop\TacFoot\index.html | Deployment copy (mirrors tacfoot4.html) |
 | NOTES.md | This file |
