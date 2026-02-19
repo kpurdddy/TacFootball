@@ -1,8 +1,43 @@
 # TacFootball Development Notes
 
-## Current State (as of 2026-02-17)
+## Current State (as of 2026-02-19)
 
 Single-file React app (`tacfoot4.html`) — tactical football game with play calling, QB decision-making, run/pass mechanics, RPO system, contact resolution, play-by-play logging, and commentary system.
+
+---
+
+## Changes Made 2026-02-19
+
+### ALPHA 15.2.2 — Eliminate Phantom Tackles (Runner Mode Fix)
+
+Backup: `tacfoot4-v28.html` (pre-ALPHA 15.2.2 state)
+
+Context: Previous fixes (15.1.1, 15.1.2, 15.2) added a universal phantom tackle gate inside `endPlay()` that gave bonus yards when no defender was near — but the play **still ended**. The gate mitigated but didn't prevent phantom tackles. Three code paths were still calling `endPlay()` when no defender was visually close.
+
+#### FIX A — YAC Reduction: Safety Cap Raised from 2 to 6 Run Actions
+- The `doRun` open-field auto-end fired at `ra >= 2` with `nearbyCount === 0` — ending the play after just 2 run actions in open space
+- This was the #1 phantom tackle cause: runner breaks free, takes 2 moves, gets "corralled" by nobody
+- Changed threshold from `ra >= 2` to `ra >= 6` — runners now stay in runner mode until 6 pursuit cycles
+- For `ra < 6` with no nearby defenders, falls through to `setMode("runner")` naturally
+- `pursue()` runs each cycle bringing defenders closer, so the runner WILL eventually get caught
+- Safety cap at 6 prevents infinite running
+
+#### FIX B — resolveContact: Re-enter Runner Mode When Open After Max Tackles
+- When runner breaks max tackles and no defender is within 3 yards (`nd2.d >= 3`), previously called `endPlay()` with "corralled" — phantom tackle
+- Now gives 2-5 bonus yards, pursues defenders one more step, computes new run arrows, and re-enters runner mode
+- Next `doRun` cycle will auto-tackle when a defender arrives within 2 yards (correct behavior since max contacts reached)
+- TD check added for bonus yards pushing into end zone
+
+#### FIX C — Universal Gate: Abort endPlay and Return to Runner Mode
+- The universal phantom tackle gate inside `endPlay()` previously gave bonus yards but let the play end anyway
+- Now **aborts `endPlay()` entirely** when `nd.d >= 3`: gives bonus yards, pursues defenders, computes arrows, enters runner mode, then `return`s
+- This is the last-resort safety net — if any other code path phantom-tackles, the gate catches it and continues the play
+- Play only ends when a defender is actually within 3 yards of the ball carrier
+
+#### Result
+- All 3 phantom tackle paths now return to runner mode instead of ending the play
+- Plays only end when a defender dot is visually near the runner
+- Safety cap at 6 run actions prevents infinite running
 
 ---
 
@@ -1088,7 +1123,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.2 — phantom tackle root cause fix, 3 upstream paths + visual polish) |
+| tacfoot4.html | Current working version (ALPHA 15.2.2 — eliminate phantom tackles, runner mode fix) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
