@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.2.3</title>
+  <title>Tactical Football — ALPHA 15.2.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.2.3";
+    const GAME_VERSION = "Version ALPHA 15.3";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -75,11 +75,11 @@
     };
     // Completion / INT modifiers per scheme per receiver
     const COVERAGE_THROW = {
-      cover2:   { wr1:{cp:-8,ip:3}, wr2:{cp:-8,ip:3}, te:{cp:10,ip:-3}, rb:{cp:5,ip:-1} },
-      base43:   { wr1:{cp:2,ip:0},  wr2:{cp:2,ip:0},  te:{cp:0,ip:0},   rb:{cp:0,ip:0} },
-      nickel:   { wr1:{cp:-5,ip:2}, wr2:{cp:-5,ip:2}, te:{cp:6,ip:-1},  rb:{cp:3,ip:0} },
+      cover2:   { wr1:{cp:-8,ip:3}, wr2:{cp:-8,ip:3}, te:{cp:2,ip:2},   rb:{cp:5,ip:-1} },
+      base43:   { wr1:{cp:2,ip:0},  wr2:{cp:2,ip:0},  te:{cp:6,ip:-1},  rb:{cp:0,ip:0} },
+      nickel:   { wr1:{cp:-5,ip:2}, wr2:{cp:-5,ip:2}, te:{cp:-6,ip:3},  rb:{cp:3,ip:0} },
       blitz:    { wr1:{cp:0,ip:0},  wr2:{cp:0,ip:0},  te:{cp:0,ip:0},   rb:{cp:0,ip:0} },
-      goalline: { wr1:{cp:6,ip:-2}, wr2:{cp:6,ip:-2}, te:{cp:4,ip:-1},  rb:{cp:4,ip:-1} },
+      goalline: { wr1:{cp:6,ip:-2}, wr2:{cp:6,ip:-2}, te:{cp:-3,ip:1},  rb:{cp:4,ip:-1} },
     };
 
     // ==================== ROUTES ====================
@@ -397,12 +397,14 @@
       return pos;
     }
 
-    function pursue(prev, rP, step) {
+    function pursue(prev, rP, step, carrier) {
       const np = {};
+      // Slower carriers let defenders close faster (TE=1.25, QB=1.15, WR=1.0, RB=1.0)
+      const carrierSlowness = carrier==="te" ? 1.25 : carrier==="qb" ? 1.15 : 1.0;
       for (const p of DEF) {
         const pr = prev[p.id]; if (!pr) continue;
         const intensity = step > 2 ? 1 + (step - 2) * 0.15 : 1;
-        const cy = (p.spd*0.45+0.5+step*0.12) * intensity, d = dst(pr,rP);
+        const cy = (p.spd*0.45+0.5+step*0.12) * intensity * carrierSlowness, d = dst(pr,rP);
         if (d < 0.5) { np[p.id]={...rP}; continue; }
         np[p.id] = R(pr.x+(rP.x-pr.x)*Math.min(cy/d,1), pr.y+(rP.y-pr.y)*Math.min(cy/d,1));
       }
@@ -489,9 +491,11 @@
       return {ok:true,int:false,yds:Math.round(rP.y),cId:recId,msg:`${recId.toUpperCase()} makes the catch!`,tP:rP,reason:`${recId.toUpperCase()} was ${pr.op.lab.toLowerCase()} — good read.`};
     }
 
-    function computeRunArrows(bcPos, defP, gameState, moveNum) {
+    function computeRunArrows(bcPos, defP, gameState, moveNum, carrier, holeData, diff) {
       moveNum = moveNum || 0;
       if (!bcPos) return [];
+      // Speed factor by ball carrier position
+      const speedFactor = carrier==="wr1"||carrier==="wr2" ? 1.0 : carrier==="rb" ? 0.9 : carrier==="te" ? 0.7 : carrier==="qb" ? 0.75 : 0.85;
       const arrows = [];
       const defenders = Object.entries(defP).map(([id,p])=>({id,...p,d:dst(bcPos,p)})).sort((a,b)=>a.d-b.d);
       const ahead = defenders.filter(d => d.y > bcPos.y - 2 && d.d < 25);
@@ -535,10 +539,18 @@
       const sprintTargetX = cl(bcPos.x, 5, 95); // straight ahead
       const sprintTargetY = bcPos.y + 8;
       const sprintCone = nearestInCone(sprintTargetX, sprintTargetY, 0.4);
-      const sprintPct = distBasePct(sprintCone.dist, sprintCone.count);
+      let sprintPct = distBasePct(sprintCone.dist, sprintCone.count);
+      // Hole awareness: boost Sprint if aligned with designed hole
+      let holeAligned = false;
+      if (holeData && holeData.x != null) {
+        const holeDx = Math.abs(bcPos.x - holeData.x);
+        if (holeDx < 15) { sprintPct = cl(sprintPct + 18, 5, 98); holeAligned = true; }
+        // Wider holes (better blocking / good MX) get extra boost
+        if (holeAligned && holeData.width > 10) sprintPct = cl(sprintPct + 10, 5, 98);
+      }
       const sprintYds = cl(Math.round(sprintCone.dist * 0.6), 2, 6);
       arrows.push({
-        type: "sure", label: "Sprint", sub: `~${sprintYds} yards, straight ahead`,
+        type: "sure", label: "Sprint", sub: holeAligned ? `~${sprintYds} yards, through the hole` : `~${sprintYds} yards, straight ahead`,
         targetX: sprintTargetX, targetY: sprintTargetY, color: "#22c55e", pct: sprintPct,
         ydsLow: sprintYds - 1, ydsHigh: sprintYds + 2
       });
@@ -548,7 +560,9 @@
       const cutX = cl(bcPos.x + (nearerSideline < 50 ? -18 : 18), 5, 95);
       const cutY = bcPos.y + 5;
       const cutCone = nearestInCone(cutX, cutY, 0.45);
-      const cutPct = distBasePct(cutCone.dist, cutCone.count);
+      let cutPct = distBasePct(cutCone.dist, cutCone.count);
+      // Slight penalty to Cut Outside when hole is designed elsewhere
+      if (holeAligned) cutPct = cl(cutPct - 5, 5, 98);
       const cutYds = cutCone.dist >= 8 ? rnd(6, 12) : rnd(3, 8);
       if (!isOpen || true) { // always show Cut Outside (suppressed for Juke below)
         arrows.push({
@@ -572,6 +586,13 @@
 
       // === DIVE FORWARD — always available, shown via getRunActions ===
       // (Dive Forward is added in getRunActions, not here)
+
+      // Apply speed factor — slower carriers (TE, QB) get reduced arrow percentages
+      for (const a of arrows) a.pct = cl(Math.round(a.pct * speedFactor), 5, 98);
+
+      // Difficulty modifier — easier difficulties get run forgiveness
+      const diffBonus = diff==="practice" ? 20 : diff==="preseason" ? 12 : diff==="playoffs" ? -5 : 0;
+      if (diffBonus !== 0) for (const a of arrows) a.pct = cl(a.pct + diffBonus, 5, 98);
 
       return arrows;
     }
@@ -1426,7 +1447,7 @@
         sfx(SFX.snap);
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
-        setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(false);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
+        setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(isPre(diff));if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
         lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
@@ -1547,15 +1568,15 @@
             if(nd.d>=3){
               // No defender within 3 yards — phantom tackle! Abort endPlay, return to runner mode.
               const bonus=rnd(3,6);
-              const fP=R(carrierPos.x+rnd(-3,3),carrierPos.y+bonus);
+              const fP=R(carrierPos.x+rnd(-3,3), Math.min(carrierPos.y+bonus, 99-game.bo));
               setBcP(fP);setBallP({...fP});
-              if(game.bo+Math.round(fP.y)>=100){endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!");return;}
-              const ndp=pursue(defPos,fP,runAct+1);setDefPos(ndp);
-              const arrows=computeRunArrows(fP,ndp,game,runAct);setRunArrows(arrows);
-              setNarr("Breaks free — still running!");
-              setCoach(coachRunner(fP,ndp,arrows,game,coachType));
-              animThen(()=>{setPhase(p=>p+1);setMode("runner");},ANIM);
-              return;
+              const ndp2=pursue(defPos,fP,runAct+1,bc);
+              setDefPos(ndp2);
+              const arrows2=computeRunArrows(fP,ndp2,game,runAct,bc,holeInfo,diff);setRunArrows(arrows2);
+              setNarr("Breaks free! Still running!");
+              setCoach("");
+              animThen(()=>setMode("runner"),ANIM);
+              return; // Abort endPlay — play continues in runner mode
             }
           }
         }
@@ -1598,7 +1619,7 @@
           const {olPos:rOL,defAdj,holeInfo:hi}=computeRunOL(selPlay.name,defSch.pos,defSch,mxR);
           setIsRun(true);setBc("rb");setHanded(true);
           const rbR=routes.rb;
-          let rbPos=rbR?rbR[0]:selPlay.formation.rb;
+          const rbPos=rbR?rbR[0]:selPlay.formation.rb;
           const tossMult=diff==="practice"?0.05:diff==="preseason"?0.3:diff==="regular"?0.6:1.0;
           if(selPlay.tossFumble&&Math.random()<selPlay.tossFumble*tossMult){
             setBcP(rbPos);setBallP({...rbPos});setBallSt("loose");
@@ -1611,47 +1632,22 @@
           for (const p of DEF) { if (p.pos === "LB" && !defAdj[p.id]) { const s = defSch.pos[p.id]; newDef[p.id] = R(s.x + (rbPos.x - s.x) * 0.12, s.y + (rbPos.y - s.y) * 0.08); } }
           for (const p of DEF) { if ((p.pos === "CB" || p.pos === "S") && !defAdj[p.id]) { newDef[p.id] = defSch.pos[p.id]; } }
           setDefPos(newDef);setOlPos(rOL);setHoleInfo(hi);
+          // Snap defender visuals to blocked positions so the hole is visible at handoff
+          for(const [did, pos] of Object.entries(newDef)){visualPos.current[`def-${did}`]={...pos};}
           if(ch==="handoff_bad"){
-            // Bad handoff — RB at WP0, immediate contact (no cutback on bad handoff)
             setNarr("Handoff into traffic!");setCoach("Brace for contact!");
-            const dp=pursue(newDef,rbPos,1);const dp2=pursue(dp,rbPos,2);setDefPos(dp2);
+            const dp=pursue(newDef,rbPos,1,"rb");const dp2=pursue(dp,rbPos,2,"rb");setDefPos(dp2);
             animThen(()=>{setPhase(p=>p+1);triggerContact(rbPos,dp2);},ANIM);
-          } else if(selPlay.name==="Counter" && rbR && rbR.length>=3){
-            // Counter route animation: RB fakes right (WP0) → cutback left (WP2)
-            // Phase 1: RB is at WP0 (fake direction), defenders already shifted toward fake
-            const fakePos=rbPos;
-            setNarr("Counter! Faking right...");
-            animThen(()=>{
-              // Phase 2: Cutback — move RB to WP2
-              rbPos=rbR[2];
-              setBcP(rbPos);setBallP({...rbPos});
-              // Extra misdirection: push LBs & safeties further toward the fake
-              const updDef={...newDef};
-              for(const p of DEF){
-                if((p.pos==="LB"||p.pos==="S") && updDef[p.id]){
-                  const cur=updDef[p.id];
-                  updDef[p.id]=R(cur.x+(fakePos.x-cur.x)*0.3, cur.y+(fakePos.y-cur.y)*0.15);
-                }
-              }
-              setDefPos(updDef);
-              setNarr("Cuts back left!");
-              animThen(()=>{
-                // Phase 3: Enter runner mode at cutback position
-                const arrows=computeRunArrows(rbPos,updDef,game);setRunArrows(arrows);
-                setCoach(coachRunner(rbPos,updDef,arrows,game,coachType));
-                setPhase(p=>p+1);setMode("runner");
-              },ANIM);
-            },ANIM);
           } else {
-            const arrows = computeRunArrows(rbPos, newDef, game);setRunArrows(arrows);
+            const arrows = computeRunArrows(rbPos, newDef, game, 0, "rb", hi, diff);setRunArrows(arrows);
             setNarr("Handoff to RB!");setCoach(coachRunner(rbPos, newDef, arrows, game, coachType));
             animThen(()=>{setPhase(p=>p+1);setMode("runner");},ANIM);
           }
         } else if(ch==="qb_keep"){
           setIsRun(true);setBc("qb");setBcP({...qbP});setIsCatch(false);setRunAct(0);
           setNarr("QB fakes the handoff and keeps it!");setCoach("🏃 QB on the move — find daylight!");
-          const dp=pursue(defPos,qbP,1);setDefPos(dp);
-          const arrows=computeRunArrows(qbP,dp,game);setRunArrows(arrows);
+          const dp=pursue(defPos,qbP,1,"qb");setDefPos(dp);
+          const arrows=computeRunArrows(qbP,dp,game,0,"qb",null,diff);setRunArrows(arrows);
           animThen(()=>{setPhase(p=>p+1);setMode("runner");},ANIM);
         } else if(ch==="quick_pass"){
           // BUG 4 FIX: Quick pass scales with defensive commitment
@@ -1763,7 +1759,7 @@
                 setBallSt("held");setBc(res.cId);setBcP({...tp});setBallP({...tp});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
-                let dp=pursue(defPos,tp,1);
+                let dp=pursue(defPos,tp,1,res.cId);
                 // Ensure no defender lands directly on the catch point
                 for(const [did,dpos] of Object.entries(dp)){
                   const d=dst(tp,dpos);
@@ -1800,26 +1796,22 @@
                   maxContactsRef.current=1;
                   setRunAct(0);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} — defender closing fast, one chance to make a move!`);
-                  const ndp=pursue(dp,tp,1);setDefPos(ndp);
-                  const arrows=computeRunArrows(tp,ndp,game,0);setRunArrows(arrows);
+                  const ndp=pursue(dp,tp,1,res.cId);setDefPos(ndp);
+                  const arrows=computeRunArrows(tp,ndp,game,0,res.cId,null,diff);setRunArrows(arrows);
                   setCoach(coachRunner(tp,ndp,arrows,game,coachType));
                   animThen(()=>setMode("runner"),ANIM);
                 } else {
-                  // TIER 3: Defender 4+ yards — open field, enter runner mode with bonus yards
+                  // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
                   const bonus=rnd(3,8);
+                  const totalYds=res.yds+bonus;
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more!`);
-                  if(game.bo+Math.round(nP.y)>=100){
-                    animThen(()=>endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`),ANIM);
-                  } else {
-                    setRunAct(0);
-                    const ndp=pursue(dp,nP,1);setDefPos(ndp);
-                    const arrows=computeRunArrows(nP,ndp,game,0);setRunArrows(arrows);
-                    setCoach(coachRunner(nP,ndp,arrows,game,coachType));
-                    animThen(()=>setMode("runner"),ANIM);
-                  }
+                  animThen(()=>{
+                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`);
+                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space and picks up ${bonus} more before being brought down`);
+                  },ANIM);
                 }
               }
             },flightMs);
@@ -1831,8 +1823,9 @@
             const rbPos=rbR?rbR[cl(phase-1,0,rbR.length-1)]:selPlay.formation.rb;
             setBcP(rbPos);setBallP({...rbPos});setBallSt("held");
             setRunAct(0);setNarr("Handoff to RB!");
-            const dp=pursue(defPos,rbPos,1);setDefPos(dp);
-            const arrows=computeRunArrows(rbPos,dp,game);setRunArrows(arrows);
+            const dp=pursue(defPos,rbPos,1,"rb");setDefPos(dp);
+            for(const [did, pos] of Object.entries(dp)){visualPos.current[`def-${did}`]={...pos};}
+            const arrows=computeRunArrows(rbPos,dp,game,0,"rb",holeInfo,diff);setRunArrows(arrows);
             setCoach(coachRunner(rbPos,dp,arrows,game,coachType));
             animThen(()=>{setPhase(np);setMode("runner");},ANIM);
             break;
@@ -1844,8 +1837,9 @@
             setBcP(rbPos);setBallP({...rbPos});setBallSt("held");
             setRunAct(0);setNarr("STATUE OF LIBERTY! RB takes it!");
             setCoach("🗽 They didn't see it! RB has the ball — find daylight!");
-            const dp=pursue(defPos,rbPos,1);setDefPos(dp);
-            const arrows=computeRunArrows(rbPos,dp,game);setRunArrows(arrows);
+            const dp=pursue(defPos,rbPos,1,"rb");setDefPos(dp);
+            for(const [did, pos] of Object.entries(dp)){visualPos.current[`def-${did}`]={...pos};}
+            const arrows=computeRunArrows(rbPos,dp,game,0,"rb",holeInfo,diff);setRunArrows(arrows);
             animThen(()=>{setPhase(np);setMode("runner");},ANIM);
             break;
           }
@@ -1853,8 +1847,8 @@
             setIsRun(true);setBc("qb");setBcP({...qbP});setIsCatch(false);
             setRunAct(0);setNarr("QB tucks and runs!");
             setCoach("🏃 QB on the move — find a gap!");
-            const dp=pursue(defPos,qbP,1);setDefPos(dp);
-            const arrows=computeRunArrows(qbP,dp,game);setRunArrows(arrows);
+            const dp=pursue(defPos,qbP,1,"qb");setDefPos(dp);
+            const arrows=computeRunArrows(qbP,dp,game,0,"qb",null,diff);setRunArrows(arrows);
             animThen(()=>{setPhase(np);setMode("runner");},ANIM);
             break;
           }
@@ -1923,7 +1917,7 @@
         setPbp(p=>[...p,pLabels[action]||action]);
         const np=phase+1;const mu=degradeMatchups(matchups,defSch);setMatchups(mu);
         if(action==="throw_away"){endPlay(0,"Threw it away under pressure",false,true,"QB threw the ball away to avoid the sack.");return;}
-        if(action==="tuck_run"){setIsRun(true);setBc("qb");setBcP({...qbP});setIsCatch(false);setRunAct(0);setPhase(np);setNarr("QB tucks and runs!");setCoach("🏃 QB scrambles out — find a gap!");const dp=pursue(defPos,qbP,1);setDefPos(dp);const arrows=computeRunArrows(qbP,dp,game);setRunArrows(arrows);animThen(()=>setMode("runner"),ANIM);return;}
+        if(action==="tuck_run"){setIsRun(true);setBc("qb");setBcP({...qbP});setIsCatch(false);setRunAct(0);setPhase(np);setNarr("QB tucks and runs!");setCoach("🏃 QB scrambles out — find a gap!");const dp=pursue(defPos,qbP,1,"qb");setDefPos(dp);const arrows=computeRunArrows(qbP,dp,game,0,"qb",null,diff);setRunArrows(arrows);animThen(()=>setMode("runner"),ANIM);return;}
         if(action==="scramble_left"){const nq=R(cl(qbP.x-rnd(3,4),5,95),qbP.y);setQbP(nq);setPhase(np);setNarr("QB rolls left!");setCoach("Rolling left — decide quick!");animThen(()=>{const sr=checkSack(np,mu,nq,true);if(sr==="pressure")setMode("pressure");else if(sr==="safe")setMode("decision");},ANIM);return;}
         if(action==="scramble_right"){const nq=R(cl(qbP.x+rnd(3,4),5,95),qbP.y);setQbP(nq);setPhase(np);setNarr("QB rolls right!");setCoach("Rolling right — decide quick!");animThen(()=>{const sr=checkSack(np,mu,nq,true);if(sr==="pressure")setMode("pressure");else if(sr==="safe")setMode("decision");},ANIM);return;}
       };
@@ -1979,9 +1973,9 @@
           tacklesBroken.current++;
           setNarr(`BREAKS FREE! ${opt.type==="spin"?"Spin move!":opt.type==="juke"?"Juke!":"Stiff arm!"}`);
           setCoach("💥 He's loose! Keep running!");
-          const ndp=pursue(contactData.dp,nP,runAct+1);
+          const ndp=pursue(contactData.dp,nP,runAct+1,bc);
           setDefPos(ndp);setRunAct(r=>r+1);
-          const arrows=computeRunArrows(nP,ndp,game,runAct);setRunArrows(arrows);
+          const arrows=computeRunArrows(nP,ndp,game,runAct,bc,holeInfo,diff);setRunArrows(arrows);
           if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),"Breaks free into the ENDZONE!");
           else if(tacklesBroken.current>=maxContactsRef.current){
             // FIX 1 (15.1.1): Max contacts — check proximity before "brought down"
@@ -1989,15 +1983,16 @@
             if(nd2.d<3){
               animThen(()=>endPlay(Math.round(nP.y),`Brought down for ${fmtYds(Math.round(nP.y))} after breaking free`),ANIM);
             } else {
-              // No defender close — bonus yards, re-enter runner mode (not endPlay)
+              // No defender close — bonus yards then re-enter runner mode (not phantom end)
               const bonus2=rnd(2,5);
               const fP=R(nP.x+rnd(-3,3),nP.y+bonus2);
               setBcP(fP);setBallP({...fP});
               if(game.bo+Math.round(fP.y)>=100){animThen(()=>endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!"),ANIM);}
               else {
-                const ndp2=pursue(ndp,fP,runAct+2);setDefPos(ndp2);
-                const arrows2=computeRunArrows(fP,ndp2,game,runAct);setRunArrows(arrows2);
-                setCoach(coachRunner(fP,ndp2,arrows2,game,coachType));
+                const ndp2=pursue(ndp,fP,runAct+2,bc);
+                setDefPos(ndp2);
+                const arrows2=computeRunArrows(fP,ndp2,game,runAct+1,bc,holeInfo,diff);setRunArrows(arrows2);
+                setNarr("Breaks free! Still on his feet!");
                 animThen(()=>setMode("runner"),ANIM);
               }
             }
@@ -2051,7 +2046,7 @@
         const runGain=Math.round(np.y)-(bcP?Math.round(bcP.y):0);
         if(game.bo+Math.round(np.y)>=100){
           // Check if a safety/CB is in range to force a tackle attempt
-          const ndp=pursue(defPos,np,ra);
+          const ndp=pursue(defPos,np,ra,bc);
           const chasers=Object.entries(ndp).filter(([did,dp])=>{
             const def=gP(DEF,did);
             return def&&(def.pos==="CB"||def.pos==="S")&&dst(np,dp)<6;
@@ -2070,7 +2065,7 @@
 
         // CHANGE 5: QB scrambles — defender catches up on 10+ yard gains
         if(bc==="qb"&&runGain>=10){
-          const ndp=pursue(defPos,np,ra+1); // extra pursue step for QB
+          const ndp=pursue(defPos,np,ra+1,"qb"); // extra pursue step for QB
           const closeD=Object.values(ndp).filter(d=>dst(np,d)<3).length;
           if(closeD>0){
             setBcP(np);setBallP({...np});setQbP(np);setRunAct(ra);
@@ -2087,12 +2082,12 @@
         if(bc==="qb")setQbP(np);
         setRunAct(ra);
 
-        const ndp=pursue(defPos,np,ra);setDefPos(ndp);
+        const ndp=pursue(defPos,np,ra,bc);setDefPos(ndp);
         // FIX 2: Use same coordinates as rendering for tackle distance check
         const renderedDef={...ndp};
         if(Object.keys(olPos).length>0){for(const [dl,olId] of Object.entries(OL_BLK)){if(renderedDef[dl]&&olPos[olId]&&renderedDef[dl].y<olPos[olId].y)renderedDef[dl]=R(renderedDef[dl].x,olPos[olId].y);}}
         const nd=nearD(np,renderedDef);
-        const arrows=computeRunArrows(np,ndp,game,ra);setRunArrows(arrows);
+        const arrows=computeRunArrows(np,ndp,game,ra,bc,holeInfo,diff);setRunArrows(arrows);
         setCoach(coachRunner(np,ndp,arrows,game,coachType));
 
         // FIX 7: Distance-based contact decisions for running
@@ -2108,16 +2103,17 @@
           return;
         }
 
-        // YAC REDUCTION: safety cap at 6 open-field run actions — end play only after 6 moves with nobody close
+        // YAC REDUCTION: if nobody within 3 yards in open field
         const nearbyCount=Object.values(renderedDef).filter(d=>dst(np,d)<3).length;
         if(nearbyCount===0&&ra>=6){
-          // 6+ moves in open field — end play (safety cap)
+          // Safety cap — 6+ run actions with no defender nearby, auto-end is reasonable
           const bonus=rnd(2,4);
           const finalP=R(np.x+rnd(-3,3),np.y+bonus);
           setBcP(finalP);setBallP({...finalP});
           if(game.bo+Math.round(finalP.y)>=100){endPlay(Math.round(finalP.y),`${bc.toUpperCase()} breaks into the ENDZONE!`);return;}
           endPlay(Math.round(finalP.y),`Runs free for ${fmtYds(Math.round(finalP.y))}`);return;
         }
+        // ra < 6 with no nearby defenders: fall through to runner mode below
 
         animThen(()=>setMode("runner"),ANIM);
       };

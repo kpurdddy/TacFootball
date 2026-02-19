@@ -8,6 +8,50 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.3 — Run Game Overhaul + TE Nerf
+
+Backup: `tacfoot4-v29.html` (pre-ALPHA 15.3 state)
+
+#### FIX 1 — TE Nerf: Realistic Coverage and YAC
+- **A. COVERAGE_THROW nerfed**: TE no longer gets big completion bonuses across most defenses
+  - Cover 2: cp:10→2, ip:-3→2 (safeties contest TE over middle)
+  - Base 4-3: cp:0→6, ip:0→-1 (only scheme that leaves seam genuinely open)
+  - Nickel: cp:6→-6, ip:-1→3 (designed to cover seam — TE very hard)
+  - Goal Line: cp:4→-3, ip:-1→1 (run defense doesn't leave TE soft spots)
+  - Blitz: unchanged (cp:0, ip:0)
+- **B. Speed factor in computeRunArrows**: WR=1.0, RB=0.9, QB=0.75, TE=0.7. Applied to all arrow percentages. A TE Sprint at 75% becomes 52%.
+- **C. Pursue carrier slowness**: TE=1.25x defender pursuit speed, QB=1.15x. Defenders close faster on slower carriers. Default 1.0x for WR/RB.
+- All pursue() and computeRunArrows() call sites updated to pass carrier position.
+
+#### FIX 2 — OL Gap Visuals: Show the Hole Opening
+- After `setDefPos(newDef)` in run handoff paths (doRPO + doQB handoff + statue_handoff), immediately snap `visualPos.current` for all defenders to their blocked positions
+- `for(const [did, pos] of Object.entries(newDef)){visualPos.current[\`def-${did}\`]={...pos};}`
+- Eliminates visual lag where RB arrives before the gap is visible (defenders were lerping slowly)
+- Hole is now visible at the moment of handoff
+
+#### FIX 3 — Preseason Route Ghosts: Keep Routes Visible After Snap
+- Changed `setShowGhost(false)` to `setShowGhost(isPre(diff))` in snap()
+- Routes stay on screen throughout the play in Practice and Preseason
+- Player can see receivers running their designed routes, understanding play structure
+- Routes still disappear at snap in Regular Season and Playoffs
+
+#### FIX 4 — Arrow Hole Awareness: Designed Hole Boosts Sprint
+- `holeData` parameter added to computeRunArrows (from holeInfo state)
+- Sprint through the designed gap: +18% when ball carrier is within 15 units of hole x-position
+- Additional +10% when hole width > 10 (wider hole = better blocking / good MX)
+- Cut Outside gets -5% when hole is aligned (incentivizes running through the designed gap)
+- Sprint label changes to "through the hole" when hole-aligned
+- All call sites updated to pass holeInfo
+
+#### FIX 5 — Preseason Run Forgiveness
+- `diff` parameter added to computeRunArrows
+- Difficulty modifier applied to all arrow percentages after speed factor:
+  - Practice: +20%, Preseason: +12%, Regular: +0%, Playoffs: -5%
+- Clamped to 5-98% range
+- All call sites updated to pass diff
+
+---
+
 ### ALPHA 15.2.3 — Phantom Tackles ACTUALLY Fixed + Counter Route Animation
 
 **IMPORTANT**: ALPHA 15.2.2 and 15.2 entries below were documentation fiction. The code changes described in those entries were NEVER applied — notes.md was updated but tacfoot4.html was not edited. All four phantom tackle paths were still calling endPlay() with no defender nearby. This build applies the actual fixes.
@@ -1134,7 +1178,8 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.2.3 — phantom tackles actually fixed + Counter route animation) |
+| tacfoot4.html | Current working version (ALPHA 15.3 — Run Game Overhaul + TE Nerf) |
+| tacfoot4-v29.html | Before ALPHA 15.3 (run game overhaul + TE nerf) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |
