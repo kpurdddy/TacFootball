@@ -8,36 +8,47 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
-### ALPHA 15.2.2 — Eliminate Phantom Tackles (Runner Mode Fix)
+### ALPHA 15.2.3 — Phantom Tackles ACTUALLY Fixed + Counter Route Animation
 
-Backup: `tacfoot4-v28.html` (pre-ALPHA 15.2.2 state)
+**IMPORTANT**: ALPHA 15.2.2 and 15.2 entries below were documentation fiction. The code changes described in those entries were NEVER applied — notes.md was updated but tacfoot4.html was not edited. All four phantom tackle paths were still calling endPlay() with no defender nearby. This build applies the actual fixes.
 
-Context: Previous fixes (15.1.1, 15.1.2, 15.2) added a universal phantom tackle gate inside `endPlay()` that gave bonus yards when no defender was near — but the play **still ended**. The gate mitigated but didn't prevent phantom tackles. Three code paths were still calling `endPlay()` when no defender was visually close.
+#### FIX 1 — endPlay() Universal Gate: Now Actually Aborts (line ~1547)
+- **Was**: Gate gave bonus yards but fell through — play still ended
+- **Now**: Gate gives bonus yards, checks TD, pursues defenders, computes arrows, enters runner mode, then `return`s — play does NOT end
+- Verified: `return;` present at line 1558
 
-#### FIX A — YAC Reduction: Safety Cap Raised from 2 to 6 Run Actions
-- The `doRun` open-field auto-end fired at `ra >= 2` with `nearbyCount === 0` — ending the play after just 2 run actions in open space
-- This was the #1 phantom tackle cause: runner breaks free, takes 2 moves, gets "corralled" by nobody
-- Changed threshold from `ra >= 2` to `ra >= 6` — runners now stay in runner mode until 6 pursuit cycles
-- For `ra < 6` with no nearby defenders, falls through to `setMode("runner")` naturally
-- `pursue()` runs each cycle bringing defenders closer, so the runner WILL eventually get caught
-- Safety cap at 6 prevents infinite running
+#### FIX 2 — Catch Tier 3: Now Actually Enters Runner Mode (line ~1794)
+- **Was**: Tier 3 (defender 4+ yards away) gave +3-8 bonus yards then called `endPlay()` — phantom tackle
+- **Now**: Tier 3 gives bonus yards, then: `setRunAct(0)`, pursue defenders, compute arrows, `setMode("runner")` — runner mode, not endPlay
+- TD check preserved for bonus yards reaching end zone
+- Verified: `setMode("runner")` at line 1808, no `endPlay()` in the non-TD path
 
-#### FIX B — resolveContact: Re-enter Runner Mode When Open After Max Tackles
-- When runner breaks max tackles and no defender is within 3 yards (`nd2.d >= 3`), previously called `endPlay()` with "corralled" — phantom tackle
-- Now gives 2-5 bonus yards, pursues defenders one more step, computes new run arrows, and re-enters runner mode
-- Next `doRun` cycle will auto-tackle when a defender arrives within 2 yards (correct behavior since max contacts reached)
-- TD check added for bonus yards pushing into end zone
+#### FIX 3 — doRun YAC Reduction: Threshold 2→6, Falls Through to Runner (line ~2092)
+- **Was**: `if(nearbyCount===0 && ra>=2)` — ended play after 2 moves in open space (phantom tackle)
+- **Now**: `if(nearbyCount===0 && ra>=6)` — safety cap at 6 moves. For ra < 6 with nobody close, falls through to `setMode("runner")` at line 2103
+- Verified: `ra>=6` at line 2094
 
-#### FIX C — Universal Gate: Abort endPlay and Return to Runner Mode
-- The universal phantom tackle gate inside `endPlay()` previously gave bonus yards but let the play end anyway
-- Now **aborts `endPlay()` entirely** when `nd.d >= 3`: gives bonus yards, pursues defenders, computes arrows, enters runner mode, then `return`s
-- This is the last-resort safety net — if any other code path phantom-tackles, the gate catches it and continues the play
-- Play only ends when a defender is actually within 3 yards of the ball carrier
+#### FIX 4 — resolveContact Max Contacts: Re-enters Runner Mode When Open (line ~1978)
+- **Was**: When runner breaks max tackles with no defender within 3 yards (`nd2.d >= 3`), gave bonus yards then called `endPlay()` — phantom tackle
+- **Now**: Gives bonus yards, pursues defenders, computes arrows, enters runner mode via `setMode("runner")`
+- TD check preserved
+- Verified: `setMode("runner")` at line 1988, no `endPlay()` in the non-TD path
+
+#### FIX 5 — Counter Play Route Animation (doRPO handoff, line ~1619)
+- **Was**: Counter RB teleported to WP0 (fake direction, R(54,-7)), arrows pointed right, no cutback
+- **Now**: 3-phase chained animation via nested `animThen`:
+  1. Phase 1 (line 1622): RB at WP0 (fake right), defenders shift toward fake, narr "Counter! Faking right..."
+  2. Phase 2 (line 1624): animThen fires → RB moves to WP2 R(40,-4) (cutback left), LBs/safeties pushed 30% further toward fake, narr "Cuts back left!"
+  3. Phase 3 (line 1638): animThen fires → arrows computed from cutback position, runner mode entered
+- `handoff_bad` on Counter: RB stays at WP0, no cutback (correct — gets hit before cutback)
+- `let rbPos` (line 1601) allows reassignment across animation phases
 
 #### Result
-- All 3 phantom tackle paths now return to runner mode instead of ending the play
-- Plays only end when a defender dot is visually near the runner
-- Safety cap at 6 run actions prevents infinite running
+- All 4 phantom tackle paths now return to runner mode — plays only end with a defender within 3 yards
+- Safety cap at 6 open-field run actions prevents infinite running
+- Counter play visually animates: fake right → cutback left → runner mode at x=40
+- Counter arrows point LEFT/upfield from cutback position
+- Counter defenders shifted RIGHT (bit on fake)
 
 ---
 
@@ -1123,7 +1134,7 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.2.2 — eliminate phantom tackles, runner mode fix) |
+| tacfoot4.html | Current working version (ALPHA 15.2.3 — phantom tackles actually fixed + Counter route animation) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
 | tacfoot4-v3.html | Before pressure percentages + inside run hole randomization |

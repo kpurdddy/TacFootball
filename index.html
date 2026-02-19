@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.2.2</title>
+  <title>Tactical Football — ALPHA 15.2.3</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.2.2";
+    const GAME_VERSION = "Version ALPHA 15.2.3";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -1545,13 +1545,17 @@
             }
             const nd=nearD(carrierPos,dPosMap);
             if(nd.d>=3){
-              // No defender within 3 yards — phantom tackle! Give bonus yards instead.
+              // No defender within 3 yards — phantom tackle! Abort endPlay, return to runner mode.
               const bonus=rnd(3,6);
-              const newY=Math.min(yds+bonus, 99-game.bo); // cap before end zone (TD handled separately)
               const fP=R(carrierPos.x+rnd(-3,3),carrierPos.y+bonus);
               setBcP(fP);setBallP({...fP});
-              yds=newY;
-              desc=`Breaks free and picks up ${fmtYds(newY)} before finally being corralled`;
+              if(game.bo+Math.round(fP.y)>=100){endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!");return;}
+              const ndp=pursue(defPos,fP,runAct+1);setDefPos(ndp);
+              const arrows=computeRunArrows(fP,ndp,game,runAct);setRunArrows(arrows);
+              setNarr("Breaks free — still running!");
+              setCoach(coachRunner(fP,ndp,arrows,game,coachType));
+              animThen(()=>{setPhase(p=>p+1);setMode("runner");},ANIM);
+              return;
             }
           }
         }
@@ -1594,7 +1598,7 @@
           const {olPos:rOL,defAdj,holeInfo:hi}=computeRunOL(selPlay.name,defSch.pos,defSch,mxR);
           setIsRun(true);setBc("rb");setHanded(true);
           const rbR=routes.rb;
-          const rbPos=rbR?rbR[0]:selPlay.formation.rb;
+          let rbPos=rbR?rbR[0]:selPlay.formation.rb;
           const tossMult=diff==="practice"?0.05:diff==="preseason"?0.3:diff==="regular"?0.6:1.0;
           if(selPlay.tossFumble&&Math.random()<selPlay.tossFumble*tossMult){
             setBcP(rbPos);setBallP({...rbPos});setBallSt("loose");
@@ -1608,9 +1612,36 @@
           for (const p of DEF) { if ((p.pos === "CB" || p.pos === "S") && !defAdj[p.id]) { newDef[p.id] = defSch.pos[p.id]; } }
           setDefPos(newDef);setOlPos(rOL);setHoleInfo(hi);
           if(ch==="handoff_bad"){
+            // Bad handoff — RB at WP0, immediate contact (no cutback on bad handoff)
             setNarr("Handoff into traffic!");setCoach("Brace for contact!");
             const dp=pursue(newDef,rbPos,1);const dp2=pursue(dp,rbPos,2);setDefPos(dp2);
             animThen(()=>{setPhase(p=>p+1);triggerContact(rbPos,dp2);},ANIM);
+          } else if(selPlay.name==="Counter" && rbR && rbR.length>=3){
+            // Counter route animation: RB fakes right (WP0) → cutback left (WP2)
+            // Phase 1: RB is at WP0 (fake direction), defenders already shifted toward fake
+            const fakePos=rbPos;
+            setNarr("Counter! Faking right...");
+            animThen(()=>{
+              // Phase 2: Cutback — move RB to WP2
+              rbPos=rbR[2];
+              setBcP(rbPos);setBallP({...rbPos});
+              // Extra misdirection: push LBs & safeties further toward the fake
+              const updDef={...newDef};
+              for(const p of DEF){
+                if((p.pos==="LB"||p.pos==="S") && updDef[p.id]){
+                  const cur=updDef[p.id];
+                  updDef[p.id]=R(cur.x+(fakePos.x-cur.x)*0.3, cur.y+(fakePos.y-cur.y)*0.15);
+                }
+              }
+              setDefPos(updDef);
+              setNarr("Cuts back left!");
+              animThen(()=>{
+                // Phase 3: Enter runner mode at cutback position
+                const arrows=computeRunArrows(rbPos,updDef,game);setRunArrows(arrows);
+                setCoach(coachRunner(rbPos,updDef,arrows,game,coachType));
+                setPhase(p=>p+1);setMode("runner");
+              },ANIM);
+            },ANIM);
           } else {
             const arrows = computeRunArrows(rbPos, newDef, game);setRunArrows(arrows);
             setNarr("Handoff to RB!");setCoach(coachRunner(rbPos, newDef, arrows, game, coachType));
@@ -1774,17 +1805,21 @@
                   setCoach(coachRunner(tp,ndp,arrows,game,coachType));
                   animThen(()=>setMode("runner"),ANIM);
                 } else {
-                  // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
+                  // TIER 3: Defender 4+ yards — open field, enter runner mode with bonus yards
                   const bonus=rnd(3,8);
-                  const totalYds=res.yds+bonus;
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more!`);
-                  animThen(()=>{
-                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`);
-                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space and picks up ${bonus} more before being brought down`);
-                  },ANIM);
+                  if(game.bo+Math.round(nP.y)>=100){
+                    animThen(()=>endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`),ANIM);
+                  } else {
+                    setRunAct(0);
+                    const ndp=pursue(dp,nP,1);setDefPos(ndp);
+                    const arrows=computeRunArrows(nP,ndp,game,0);setRunArrows(arrows);
+                    setCoach(coachRunner(nP,ndp,arrows,game,coachType));
+                    animThen(()=>setMode("runner"),ANIM);
+                  }
                 }
               }
             },flightMs);
@@ -1954,11 +1989,17 @@
             if(nd2.d<3){
               animThen(()=>endPlay(Math.round(nP.y),`Brought down for ${fmtYds(Math.round(nP.y))} after breaking free`),ANIM);
             } else {
-              // No defender close — bonus yards then corralled
+              // No defender close — bonus yards, re-enter runner mode (not endPlay)
               const bonus2=rnd(2,5);
               const fP=R(nP.x+rnd(-3,3),nP.y+bonus2);
               setBcP(fP);setBallP({...fP});
-              animThen(()=>endPlay(Math.round(fP.y),`Breaks free and gains ${fmtYds(Math.round(fP.y))} before finally being corralled`),ANIM);
+              if(game.bo+Math.round(fP.y)>=100){animThen(()=>endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!"),ANIM);}
+              else {
+                const ndp2=pursue(ndp,fP,runAct+2);setDefPos(ndp2);
+                const arrows2=computeRunArrows(fP,ndp2,game,runAct);setRunArrows(arrows2);
+                setCoach(coachRunner(fP,ndp2,arrows2,game,coachType));
+                animThen(()=>setMode("runner"),ANIM);
+              }
             }
           }
           else animThen(()=>setMode("runner"),ANIM);
@@ -2067,10 +2108,10 @@
           return;
         }
 
-        // YAC REDUCTION: if nobody within 3 yards in open field, auto-run
+        // YAC REDUCTION: safety cap at 6 open-field run actions — end play only after 6 moves with nobody close
         const nearbyCount=Object.values(renderedDef).filter(d=>dst(np,d)<3).length;
-        if(nearbyCount===0&&ra>=2){
-          // Open field — auto gain and end play
+        if(nearbyCount===0&&ra>=6){
+          // 6+ moves in open field — end play (safety cap)
           const bonus=rnd(2,4);
           const finalP=R(np.x+rnd(-3,3),np.y+bonus);
           setBcP(finalP);setBallP({...finalP});
