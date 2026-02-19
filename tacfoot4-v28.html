@@ -1545,13 +1545,17 @@
             }
             const nd=nearD(carrierPos,dPosMap);
             if(nd.d>=3){
-              // No defender within 3 yards — phantom tackle! Give bonus yards instead.
+              // No defender within 3 yards — phantom tackle! Abort endPlay, return to runner mode.
               const bonus=rnd(3,6);
-              const newY=Math.min(yds+bonus, 99-game.bo); // cap before end zone (TD handled separately)
-              const fP=R(carrierPos.x+rnd(-3,3),carrierPos.y+bonus);
+              const fP=R(carrierPos.x+rnd(-3,3), Math.min(carrierPos.y+bonus, 99-game.bo));
               setBcP(fP);setBallP({...fP});
-              yds=newY;
-              desc=`Breaks free and picks up ${fmtYds(newY)} before finally being corralled`;
+              const ndp2=pursue(defPos,fP,runAct+1);
+              setDefPos(ndp2);
+              const arrows2=computeRunArrows(fP,ndp2,game,runAct);setRunArrows(arrows2);
+              setNarr("Breaks free! Still running!");
+              setCoach("");
+              animThen(()=>setMode("runner"),ANIM);
+              return; // Abort endPlay — play continues in runner mode
             }
           }
         }
@@ -1954,11 +1958,18 @@
             if(nd2.d<3){
               animThen(()=>endPlay(Math.round(nP.y),`Brought down for ${fmtYds(Math.round(nP.y))} after breaking free`),ANIM);
             } else {
-              // No defender close — bonus yards then corralled
+              // No defender close — bonus yards then re-enter runner mode (not phantom end)
               const bonus2=rnd(2,5);
               const fP=R(nP.x+rnd(-3,3),nP.y+bonus2);
               setBcP(fP);setBallP({...fP});
-              animThen(()=>endPlay(Math.round(fP.y),`Breaks free and gains ${fmtYds(Math.round(fP.y))} before finally being corralled`),ANIM);
+              if(game.bo+Math.round(fP.y)>=100){animThen(()=>endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!"),ANIM);}
+              else {
+                const ndp2=pursue(ndp,fP,runAct+2);
+                setDefPos(ndp2);
+                const arrows2=computeRunArrows(fP,ndp2,game,runAct+1);setRunArrows(arrows2);
+                setNarr("Breaks free! Still on his feet!");
+                animThen(()=>setMode("runner"),ANIM);
+              }
             }
           }
           else animThen(()=>setMode("runner"),ANIM);
@@ -2067,16 +2078,17 @@
           return;
         }
 
-        // YAC REDUCTION: if nobody within 3 yards in open field, auto-run
+        // YAC REDUCTION: if nobody within 3 yards in open field
         const nearbyCount=Object.values(renderedDef).filter(d=>dst(np,d)<3).length;
-        if(nearbyCount===0&&ra>=2){
-          // Open field — auto gain and end play
+        if(nearbyCount===0&&ra>=6){
+          // Safety cap — 6+ run actions with no defender nearby, auto-end is reasonable
           const bonus=rnd(2,4);
           const finalP=R(np.x+rnd(-3,3),np.y+bonus);
           setBcP(finalP);setBallP({...finalP});
           if(game.bo+Math.round(finalP.y)>=100){endPlay(Math.round(finalP.y),`${bc.toUpperCase()} breaks into the ENDZONE!`);return;}
           endPlay(Math.round(finalP.y),`Runs free for ${fmtYds(Math.round(finalP.y))}`);return;
         }
+        // ra < 6 with no nearby defenders: fall through to runner mode below
 
         animThen(()=>setMode("runner"),ANIM);
       };
