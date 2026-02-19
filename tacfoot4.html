@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.2</title>
+  <title>Tactical Football — ALPHA 15.2.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.2";
+    const GAME_VERSION = "Version ALPHA 15.2.1";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -494,77 +494,85 @@
       if (!bcPos) return [];
       const arrows = [];
       const defenders = Object.entries(defP).map(([id,p])=>({id,...p,d:dst(bcPos,p)})).sort((a,b)=>a.d-b.d);
+      const ahead = defenders.filter(d => d.y > bcPos.y - 2 && d.d < 25);
 
-      // BUG 2+5 FIX: Wide scan, heavy defender penalty, strong lateral penalty
-      const ahead = defenders.filter(d => d.y > bcPos.y - 2 && d.d < 20);
-      let bestGapX = bcPos.x, bestGapScore = -999;
-      // Scan wide but penalize lateral heavily
-      const scanLeft = cl(bcPos.x - 35, 3, 97);
-      const scanRight = cl(bcPos.x + 35, 3, 97);
-      for (let x = scanLeft; x <= scanRight; x += 2) {
-        // Count defenders in path toward this x target at y+8
-        const pathAngle = Math.atan2((x - bcPos.x) * 0.533, 8);
-        let minDefDist = 30;
-        let clusterPenalty = 0;
+      // Distance-weighted base percentage helper
+      const distBasePct = (nearDist, defCount) => {
+        let base;
+        if (nearDist >= 10) base = 90 + rnd(0,5);       // 90-95%
+        else if (nearDist >= 6) base = 75 + rnd(0,10);   // 75-85%
+        else if (nearDist >= 3) base = 50 + rnd(0,20);   // 50-70%
+        else base = 20 + rnd(0,30);                       // 20-50%
+        // Defender count adjustment — matters less at long range
+        const countPen = nearDist >= 8 ? defCount * 2 : nearDist >= 5 ? defCount * 4 : defCount * 6;
+        return cl(base - countPen - moveNum * 8, 5, 98);
+      };
+
+      // Find nearest defender in a given direction cone
+      const nearestInCone = (targetX, targetY, coneRad) => {
+        const pathAngle = Math.atan2((targetX - bcPos.x) * 0.533, targetY - bcPos.y);
+        let minDist = 30, count = 0;
         for (const d of ahead) {
           if (d.y <= bcPos.y) continue;
-          // Angle from runner to this defender
           const defAngle = Math.atan2((d.x - bcPos.x) * 0.533, d.y - bcPos.y);
           const angleDiff = Math.abs(defAngle - pathAngle);
-          // Defender is "in the path" if within ~20 degree cone toward the target
-          if (angleDiff < 0.35 && d.d < minDefDist) minDefDist = d.d;
-          // Cluster penalty: nearby defenders in this general direction
-          if (angleDiff < 0.5 && d.d < 5) clusterPenalty += (5 - d.d) * 2;
-          if (angleDiff < 0.25 && d.d < 3) clusterPenalty += 10; // huge penalty for direct collision
+          if (angleDiff < coneRad) {
+            if (d.d < minDist) minDist = d.d;
+            if (d.d < 12) count++;
+          }
         }
-        // Base score: how far away is the nearest defender in our path
-        let score = minDefDist * 3;
-        // Cluster penalty
-        score -= clusterPenalty;
-        // BUG 5 FIX: Lateral penalty — heavily penalize anything > 45 degrees from straight ahead
-        const latPct = Math.abs(x - bcPos.x) / 35;
-        const latAngle = Math.abs(Math.atan2((x - bcPos.x) * 0.533, 8)) * 180 / Math.PI;
-        if (latAngle > 45) score -= (latAngle - 45) * 0.5; // steep penalty past 45 degrees
-        score *= (1 - latPct * 0.7); // general lateral discount
-        if (score > bestGapScore) { bestGapScore = score; bestGapX = x; }
+        return { dist: minDist, count };
+      };
+
+      // Determine field state from nearest defender ahead
+      const nearestAhead = ahead.filter(d => d.y > bcPos.y).sort((a,b) => a.d - b.d)[0];
+      const nearDist = nearestAhead ? nearestAhead.d : 30;
+      const isOpen = nearDist >= 8;      // Open field
+      const isContested = nearDist >= 3;  // Contested (3-8 yards)
+      // Under 3 yards = crowded, handled by contact system
+
+      // === SPRINT — always straight upfield ===
+      const sprintTargetX = cl(bcPos.x, 5, 95); // straight ahead
+      const sprintTargetY = bcPos.y + 8;
+      const sprintCone = nearestInCone(sprintTargetX, sprintTargetY, 0.4);
+      const sprintPct = distBasePct(sprintCone.dist, sprintCone.count);
+      const sprintYds = cl(Math.round(sprintCone.dist * 0.6), 2, 6);
+      arrows.push({
+        type: "sure", label: "Sprint", sub: `~${sprintYds} yards, straight ahead`,
+        targetX: sprintTargetX, targetY: sprintTargetY, color: "#22c55e", pct: sprintPct,
+        ydsLow: sprintYds - 1, ydsHigh: sprintYds + 2
+      });
+
+      // === CUT OUTSIDE — angle toward nearer sideline ===
+      const nearerSideline = bcPos.x <= 50 ? 5 : 95;
+      const cutX = cl(bcPos.x + (nearerSideline < 50 ? -18 : 18), 5, 95);
+      const cutY = bcPos.y + 5;
+      const cutCone = nearestInCone(cutX, cutY, 0.45);
+      const cutPct = distBasePct(cutCone.dist, cutCone.count);
+      const cutYds = cutCone.dist >= 8 ? rnd(6, 12) : rnd(3, 8);
+      if (!isOpen || true) { // always show Cut Outside (suppressed for Juke below)
+        arrows.push({
+          type: "gamble", label: "Cut Outside", sub: `${cutYds} yards if clear, risky`,
+          targetX: cutX, targetY: cutY, color: "#fbbf24", pct: cutPct,
+          ydsLow: cutCone.dist >= 8 ? 4 : 0, ydsHigh: cutYds
+        });
       }
-      bestGapX = cl(bestGapX, bcPos.x - 20, bcPos.x + 20);
-      bestGapX = cl(bestGapX, 3, 97);
-      const sureYds = cl(Math.round(bestGapScore * 0.6), 2, 6);
-      // Position-aware success: check defenders ahead of the gap
-      const defAhead = defenders.filter(d => d.y > bcPos.y && Math.abs(d.x - bestGapX) * 0.533 < 3);
-      const defClose = defAhead.filter(d => d.d < 3).length, defMid = defAhead.filter(d => d.d >= 3 && d.d < 5).length;
-      const surePct = defClose > 0 ? cl(35 + rnd(0,5) - moveNum * 10, 30, 40) : defMid > 0 ? cl(58 + rnd(0,5) - moveNum * 10, 55, 65) : cl(75 + rnd(0,10) - moveNum * 10, 75, 85);
-      arrows.push({
-        type: "sure", label: "Run the Gap", sub: `~${sureYds} yards, low risk`,
-        targetX: bestGapX, targetY: bcPos.y + sureYds, color: "#22c55e", pct: surePct,
-        ydsLow: sureYds - 1, ydsHigh: sureYds + 2
-      });
 
-      // FIX 3: Bounce Outside angles upfield, not flat across
-      const secondLine = defenders.filter(d => d.y > bcPos.y + 5 && d.d < 25);
-      let gambleX = bcPos.x < 50 ? bcPos.x - 15 : bcPos.x + 15;
-      gambleX = cl(gambleX, 8, 92);
-      const nearGamble = defenders.filter(d => Math.abs(d.x - gambleX) < 10 && d.y > bcPos.y - 2 && d.y < bcPos.y + 8);
-      const gambleBlocked = nearGamble.length > 0;
-      const gambleYds = gambleBlocked ? rnd(8, 15) : rnd(10, 20);
-      const gamblePct = nearGamble.length === 0 ? cl(75 + rnd(0,10), 75, 85) : cl(25 + rnd(0,10), 25, 35);
-      // FIX 4 (15.0): Higher per-click gain when edge IS clear (4-8 min), low gains when blocked
-      arrows.push({
-        type: "gamble", label: "Bounce Outside", sub: `${gambleYds} yards if clear, risky`,
-        targetX: gambleX, targetY: bcPos.y + gambleYds * 0.7, color: "#fbbf24", pct: gamblePct,
-        ydsLow: gambleBlocked ? 0 : 4, ydsHigh: gambleBlocked ? gambleYds : Math.min(gambleYds, 8)
-      });
+      // === JUKE — only in contested range (nearest 3-8 yards), suppressed in open field ===
+      if (!isOpen) {
+        const hrX = bcPos.x < 50 ? cl(bcPos.x + 20, 10, 90) : cl(bcPos.x - 20, 10, 90);
+        const hrCone = nearestInCone(hrX, bcPos.y + 20, 0.5);
+        const hrPct = cl(distBasePct(hrCone.dist, hrCone.count) * 0.35, 5, 25);
+        arrows.push({
+          type: "homerun", label: "Juke", sub: `Low odds, huge gain`,
+          targetX: hrX, targetY: bcPos.y + 20, color: "#ef4444", pct: hrPct,
+          ydsLow: -2, ydsHigh: 40
+        });
+      }
 
-      const deepDef = defenders.filter(d => d.y > bcPos.y + 10);
-      const hrX = bcPos.x < 50 ? cl(bcPos.x + 20, 10, 90) : cl(bcPos.x - 20, 10, 90);
-      const nearbyD5 = defenders.filter(d => d.d < 5).length;
-      const hrPct = nearbyD5 <= 1 ? cl(20 + rnd(0,5), 20, 25) : cl(8 - nearbyD5 * 2, 5, 15);
-      arrows.push({
-        type: "homerun", label: "Break It", sub: `Low odds, huge gain`,
-        targetX: hrX, targetY: bcPos.y + 20, color: "#ef4444", pct: hrPct,
-        ydsLow: -2, ydsHigh: 40
-      });
+      // === DIVE FORWARD — always available, shown via getRunActions ===
+      // (Dive Forward is added in getRunActions, not here)
+
       return arrows;
     }
 
@@ -811,16 +819,18 @@
       return _sfxCtx;
     }
     const SFX={
-      // FIX 2 (15.1.1): UI tick — short crisp click for every button press
+      // FIX 4 (15.2.1): UI tick — short dry percussive click, no pitch sweep
       tick(ctx){
         const t=ctx.currentTime;
-        const o=ctx.createOscillator(),g=ctx.createGain();
-        o.connect(g);g.connect(ctx.destination);
-        o.type="sine";o.frequency.setValueAtTime(1800,t);
-        o.frequency.exponentialRampToValueAtTime(600,t+0.03);
+        // Short noise burst — percussive pop like tapping a physical button
+        const len=Math.floor(ctx.sampleRate*0.025),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);
+        for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.max(0,1-i/(len*0.4));
+        const s=ctx.createBufferSource(),g=ctx.createGain(),bp=ctx.createBiquadFilter();
+        s.buffer=buf;bp.type="bandpass";bp.frequency.value=500;bp.Q.value=0.8;
+        s.connect(bp);bp.connect(g);g.connect(ctx.destination);
         g.gain.setValueAtTime(0.08,t);
-        g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
-        o.start(t);o.stop(t+0.05);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.025);
+        s.start(t);s.stop(t+0.03);
       },
       // FIX 3 (15.1.1): Improved snap — punchy pop, less buzzy
       snap(ctx){
@@ -1764,22 +1774,17 @@
                   setCoach(coachRunner(tp,ndp,arrows,game,coachType));
                   animThen(()=>setMode("runner"),ANIM);
                 } else {
-                  // FIX 1 (15.2): TIER 3 — Defender 4+ yards — open field, enter runner mode
+                  // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
                   const bonus=rnd(3,8);
+                  const totalYds=res.yds+bonus;
                   const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more!`);
-                  if(game.bo+Math.round(nP.y)>=100){
-                    animThen(()=>endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`),ANIM);
-                  } else {
-                    // Open field catch — full runner mode, no contact limit
-                    setRunAct(0);
-                    const ndp=pursue(dp,nP,1);setDefPos(ndp);
-                    const arrows=computeRunArrows(nP,ndp,game,0);setRunArrows(arrows);
-                    setCoach(coachRunner(nP,ndp,arrows,game,coachType));
-                    animThen(()=>setMode("runner"),ANIM);
-                  }
+                  animThen(()=>{
+                    if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches in space and runs into the ENDZONE!`);
+                    else endPlay(Math.round(nP.y),`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space and picks up ${bonus} more before being brought down`);
+                  },ANIM);
                 }
               }
             },flightMs);
@@ -1944,22 +1949,16 @@
           const arrows=computeRunArrows(nP,ndp,game,runAct);setRunArrows(arrows);
           if(game.bo+Math.round(nP.y)>=100) endPlay(Math.round(nP.y),"Breaks free into the ENDZONE!");
           else if(tacklesBroken.current>=maxContactsRef.current){
-            // FIX 3 (15.2): Max contacts — check proximity; if open, re-enter runner mode
+            // FIX 1 (15.1.1): Max contacts — check proximity before "brought down"
             const nd2=nearD(nP,ndp);
             if(nd2.d<3){
               animThen(()=>endPlay(Math.round(nP.y),`Brought down for ${fmtYds(Math.round(nP.y))} after breaking free`),ANIM);
             } else {
-              // No defender close — bonus yards then back to runner mode
+              // No defender close — bonus yards then corralled
               const bonus2=rnd(2,5);
               const fP=R(nP.x+rnd(-3,3),nP.y+bonus2);
               setBcP(fP);setBallP({...fP});
-              if(game.bo+Math.round(fP.y)>=100){animThen(()=>endPlay(Math.round(fP.y),"Breaks free into the ENDZONE!"),ANIM);}
-              else {
-                const ndp2=pursue(ndp,fP,runAct+1);setDefPos(ndp2);
-                const arr2=computeRunArrows(fP,ndp2,game,runAct);setRunArrows(arr2);
-                setCoach(coachRunner(fP,ndp2,arr2,game,coachType));
-                animThen(()=>setMode("runner"),ANIM);
-              }
+              animThen(()=>endPlay(Math.round(fP.y),`Breaks free and gains ${fmtYds(Math.round(fP.y))} before finally being corralled`),ANIM);
             }
           }
           else animThen(()=>setMode("runner"),ANIM);
@@ -2059,12 +2058,6 @@
         if(nd.d<2){
           const dp=renderedDef[nd.id];
           console.log(`[TACKLE] ${nd.p?.lab||nd.id} at ${nd.d.toFixed(2)}yds | Def:(${dp?.x.toFixed(1)},${dp?.y.toFixed(1)}) BC:(${np.x.toFixed(1)},${np.y.toFixed(1)})`);
-          // FIX 4 (15.2): Visual snap — teleport tackling defender onto runner so dots overlap
-          const snappedPos=R(np.x+0.5,np.y-0.5);
-          renderedDef[nd.id]=snappedPos;
-          const snapDef={...ndp,[nd.id]:snappedPos};
-          setDefPos(snapDef);
-          visualPos.current[`def-${nd.id}`]={...snappedPos};
           if(nd.d<=1.5||tacklesBroken.current>=maxContactsRef.current){
             // Immediate tackle — no contact decision
             animThen(()=>endPlay(Math.round(np.y),`Brought down for ${fmtYds(Math.round(np.y))}`),ANIM);
@@ -2074,15 +2067,15 @@
           return;
         }
 
-        // FIX 2 (15.2): Open field — if nobody within 3 yards, stay in runner mode (don't auto-end)
+        // YAC REDUCTION: if nobody within 3 yards in open field, auto-run
         const nearbyCount=Object.values(renderedDef).filter(d=>dst(np,d)<3).length;
         if(nearbyCount===0&&ra>=2){
+          // Open field — auto gain and end play
           const bonus=rnd(2,4);
           const finalP=R(np.x+rnd(-3,3),np.y+bonus);
           setBcP(finalP);setBallP({...finalP});
           if(game.bo+Math.round(finalP.y)>=100){endPlay(Math.round(finalP.y),`${bc.toUpperCase()} breaks into the ENDZONE!`);return;}
-          // Don't end play — let runner keep running. Fall through to runner mode below.
-          np=finalP;
+          endPlay(Math.round(finalP.y),`Runs free for ${fmtYds(Math.round(finalP.y))}`);return;
         }
 
         animThen(()=>setMode("runner"),ANIM);
@@ -2229,16 +2222,8 @@
             if(arrow.type==="sure"){label="Sprint Upfield";sub=`~${arrow.ydsHigh-2} yards, get north`;}
             else if(arrow.type==="gamble"){label="Cut Outside";sub=`${arrow.ydsHigh} yards if clear, risky`;}
             else if(arrow.type==="homerun"){label="Truck It";sub=`Low odds, big gain, possible fumble`;}
-          } else if(isRec){
-            if(arrow.type==="sure"){label="Sprint";sub=`~${arrow.ydsHigh-2} yards, straight ahead`;}
-            else if(arrow.type==="gamble"){label="Cut Outside";sub=`${arrow.ydsHigh} yards if clear, risky`;}
-            else if(arrow.type==="homerun"){label="Juke";sub=`Low odds, huge gain`;}
-          } else if(bcP && bcP.y >= 3){
-            // RB past the line of scrimmage — open field labels
-            if(arrow.type==="sure"){label="Sprint";sub=`~${arrow.ydsHigh-2} yards, straight ahead`;}
-            else if(arrow.type==="gamble"){label="Cut Outside";sub=`${arrow.ydsHigh} yards if clear, risky`;}
-            else if(arrow.type==="homerun"){label="Juke";sub=`Low odds, huge gain`;}
           }
+          // RB/WR/TE: use labels from computeRunArrows directly (Sprint, Cut Outside, Juke)
           a.push({type:"arrow",arrow,label,sub,pct:arrow.pct,color:arrow.color});
         }
         if(isQB){
@@ -2518,13 +2503,26 @@
           )}
 
           {/* FIELD */}
-          <div style={{position:"relative",width:FW,height:FH,margin:"0 auto",background:"linear-gradient(180deg,#165c28 0%,#1a6830 50%,#165c28 100%)",borderRadius:6,overflow:"hidden",border:"2px solid #2a8040"}}>
-            {/* FIX 1 (15.0): End zones — colored fill beyond goal lines */}
-            {(()=>{const gy=yS(100-game.bo),ezy=yS(110-game.bo),t=Math.min(gy,ezy),h=Math.abs(gy-ezy);return(t<FH+10&&t+h>-10)?<div style={{position:"absolute",left:0,right:0,top:t,height:h,background:"rgba(180,30,30,0.30)",zIndex:1}}><div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:14,fontWeight:900,letterSpacing:6,color:"rgba(255,255,255,0.18)",fontFamily:"monospace"}}>END ZONE</div></div>:null;})()}
-            {(()=>{const gy=yS(-game.bo),ezy=yS(-game.bo-10),t=Math.min(gy,ezy),h=Math.abs(gy-ezy);return(t<FH+10&&t+h>-10)?<div style={{position:"absolute",left:0,right:0,top:t,height:h,background:"rgba(30,50,140,0.20)",zIndex:1}}><div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:14,fontWeight:900,letterSpacing:6,color:"rgba(255,255,255,0.12)",fontFamily:"monospace"}}>END ZONE</div></div>:null;})()}
-            {/* FIX 1 (15.0): Yard lines — full field coverage */}
+          <div style={{position:"relative",width:FW,height:FH,margin:"0 auto",background:"#1e6830",borderRadius:6,overflow:"hidden",border:"2px solid #2a8040"}}>
+            {/* Alternating turf stripes — every 5 yards, two subtle greens (playing field only) */}
+            {Array.from({length:30},(_,i)=>{
+              const stripeYd = (i - 14) * 5 + Math.floor(effectiveCamY / 5) * 5;
+              const fieldYd = game.bo + stripeYd;
+              if(fieldYd < 0 || fieldYd >= 100) return null;
+              const topY = yS(stripeYd + 5), botY = yS(stripeYd);
+              const t = Math.min(topY, botY), h = Math.abs(botY - topY);
+              if(t > FH + 10 || t + h < -10) return null;
+              const stripeIdx = Math.floor((fieldYd) / 5);
+              const col = stripeIdx % 2 === 0 ? "#2d5a1e" : "#326320";
+              return <div key={`ts${i}`} style={{position:"absolute",left:0,right:0,top:t,height:h,background:col,zIndex:0}}/>;
+            })}
+            {/* Opponent end zone — dark red with diagonal stripes */}
+            {(()=>{const gy=yS(100-game.bo),ezy=yS(110-game.bo),t=Math.min(gy,ezy),h=Math.abs(gy-ezy);return(t<FH+10&&t+h>-10)?<div style={{position:"absolute",left:0,right:0,top:t,height:h,background:"#6a1a1a",zIndex:1,overflow:"hidden"}}><div style={{position:"absolute",inset:-20,background:"repeating-linear-gradient(45deg,transparent,transparent 12px,rgba(255,255,255,0.06) 12px,rgba(255,255,255,0.06) 24px)"}}/><div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:16,fontWeight:900,letterSpacing:8,color:"rgba(255,255,255,0.35)",fontFamily:"'Segoe UI',Arial,sans-serif",textShadow:"0 2px 4px rgba(0,0,0,0.5)"}}>END ZONE</div></div>:null;})()}
+            {/* Own end zone — dark blue with diagonal stripes */}
+            {(()=>{const gy=yS(-game.bo),ezy=yS(-game.bo-10),t=Math.min(gy,ezy),h=Math.abs(gy-ezy);return(t<FH+10&&t+h>-10)?<div style={{position:"absolute",left:0,right:0,top:t,height:h,background:"#1a2a5a",zIndex:1,overflow:"hidden"}}><div style={{position:"absolute",inset:-20,background:"repeating-linear-gradient(45deg,transparent,transparent 12px,rgba(255,255,255,0.06) 12px,rgba(255,255,255,0.06) 24px)"}}/><div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:16,fontWeight:900,letterSpacing:8,color:"rgba(255,255,255,0.25)",fontFamily:"'Segoe UI',Arial,sans-serif",textShadow:"0 2px 4px rgba(0,0,0,0.5)"}}>END ZONE</div></div>:null;})()}
+            {/* Yard lines — full field coverage */}
             {Array.from({length:50},(_,i)=>{
-              const yo=(i-24.5)*2.5+camY;const y=yS(yo);if(y<-10||y>FH+10)return null;
+              const yo=(i-24.5)*2.5+effectiveCamY;const y=yS(yo);if(y<-10||y>FH+10)return null;
               const num=Math.round(game.bo+yo);const d=num>50?100-num:num;const rd=Math.round(d);
               if(num<0||num>100)return null;
               const is10=rd%10===0&&rd>=0&&rd<=50;const is5=rd%5===0&&!is10&&rd>=0&&rd<=50;
@@ -2535,6 +2533,30 @@
                 {is10&&rd>0&&rd<=50&&<><div style={{position:"absolute",left:30,top:y-12,fontSize:20,fontWeight:800,color:"rgba(255,255,255,0.18)",fontFamily:"monospace",zIndex:2}}>{rd}</div><div style={{position:"absolute",right:30,top:y-12,fontSize:20,fontWeight:800,color:"rgba(255,255,255,0.18)",fontFamily:"monospace",zIndex:2}}>{rd}</div></>}
               </div>);
             })}
+            {/* Hash marks — small tick marks at each yard, at ~1/3 from each sideline */}
+            {Array.from({length:60},(_,i)=>{
+              const yo=(i-29.5)*1.0+effectiveCamY;const y=yS(yo);if(y<-10||y>FH+10)return null;
+              const num=Math.round(game.bo+yo);if(num<1||num>99)return null;
+              if(num%5===0)return null;
+              const lHash=FW*0.295,rHash=FW*0.705;
+              return(<Fragment key={`hm${i}`}>
+                <div style={{position:"absolute",left:lHash-3,top:y,width:6,height:1,background:"rgba(255,255,255,0.12)",zIndex:2}}/>
+                <div style={{position:"absolute",left:rHash-3,top:y,width:6,height:1,background:"rgba(255,255,255,0.12)",zIndex:2}}/>
+              </Fragment>);
+            })}
+            {/* Goal posts — narrow U shape at each goal line, viewed from above */}
+            {(()=>{const y=yS(100-game.bo);if(y<-30||y>FH+30)return null;const cx=FW/2,w=40;return(<Fragment>
+              <div style={{position:"absolute",left:cx-w/2,top:y-2,width:2,height:8,background:"#ddb830",zIndex:3,opacity:0.7}}/>
+              <div style={{position:"absolute",left:cx+w/2-2,top:y-2,width:2,height:8,background:"#ddb830",zIndex:3,opacity:0.7}}/>
+              <div style={{position:"absolute",left:cx-w/2,top:y-2,width:w,height:2,background:"#ddb830",zIndex:3,opacity:0.7}}/>
+            </Fragment>);})()}
+            {(()=>{const y=yS(-game.bo);if(y<-30||y>FH+30)return null;const cx=FW/2,w=40;return(<Fragment>
+              <div style={{position:"absolute",left:cx-w/2,top:y-6,width:2,height:8,background:"#ddb830",zIndex:3,opacity:0.5}}/>
+              <div style={{position:"absolute",left:cx+w/2-2,top:y-6,width:2,height:8,background:"#ddb830",zIndex:3,opacity:0.5}}/>
+              <div style={{position:"absolute",left:cx-w/2,top:y-6,width:w,height:2,background:"#ddb830",zIndex:3,opacity:0.5}}/>
+            </Fragment>);})()}
+            {/* Midfield logo — subtle TF at the 50 yard line */}
+            {(()=>{const y50=yS(50-game.bo);if(y50<-30||y50>FH+30)return null;return <div style={{position:"absolute",left:"50%",top:y50-12,transform:"translateX(-50%)",fontSize:24,fontWeight:900,color:"rgba(255,255,255,0.06)",fontFamily:"'Segoe UI',Arial,sans-serif",letterSpacing:4,zIndex:1,pointerEvents:"none"}}>TF</div>;})()}
             {/* FIX 1 (15.0): Goal lines — bold, distinct white */}
             {(()=>{const y=yS(100-game.bo);return(y>-10&&y<FH+10)?<div style={{position:"absolute",left:0,right:0,top:y-2,height:4,background:"rgba(255,255,255,0.85)",zIndex:5,boxShadow:"0 0 8px rgba(255,255,255,0.4)"}}/>:null;})()}
             {(()=>{const y=yS(-game.bo);return(y>-10&&y<FH+10)?<div style={{position:"absolute",left:0,right:0,top:y-1.5,height:3,background:"rgba(255,255,255,0.55)",zIndex:5}}/>:null;})()}
@@ -2563,7 +2585,7 @@
               return <Fragment key={`ol-${id}`}>
                 {isIntended&&<div style={{position:"absolute",left:px-14,top:py-14,width:28,height:28,borderRadius:"50%",border:"3px solid #fbbf24",zIndex:14,pointerEvents:"none",boxShadow:"0 0 10px rgba(251,191,36,0.6), inset 0 0 6px rgba(251,191,36,0.3)"}}/>}
                 {isIntended&&<div style={{position:"absolute",left:px-30,top:py+14,width:60,textAlign:"center",fontSize:7,fontWeight:800,color:"#fbbf24",zIndex:15,pointerEvents:"none",textShadow:"0 1px 3px rgba(0,0,0,0.9)",letterSpacing:0.5}}>INTENDED</div>}
-                <div style={{position:"absolute",left:px-20,top:py-22,width:40,textAlign:"center",fontSize:8,fontWeight:800,color:col,zIndex:15,pointerEvents:"none",textShadow:"0 1px 3px rgba(0,0,0,0.8)"}}>{lab}</div>
+                <div style={{position:"absolute",left:px-26,top:py-24,width:52,textAlign:"center",fontSize:8,fontWeight:800,color:col,zIndex:15,pointerEvents:"none",background:"rgba(0,0,0,0.6)",borderRadius:8,padding:"2px 4px",textShadow:"0 1px 2px rgba(0,0,0,0.9)"}}>{lab}</div>
               </Fragment>;
             })}
             {/* On-field OL status indicators */}

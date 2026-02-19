@@ -8,6 +8,37 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-18
 
+### ALPHA 15.2.1 — Arrow Percentages + Field Visuals + UI Polish
+
+Backup: `tacfoot4-v28.html` (pre-ALPHA 15.2.1 state = copy of v27)
+
+#### FIX 1 — Distance-Weighted Arrow Percentages
+- Overhauled `computeRunArrows()` — distance to nearest defender is now the primary factor for success percentages
+- Distance bands: 10+ yards = 90-95% base, 6-10 = 75-85%, 3-6 = 50-70%, under 3 = 20-50%
+- Defender count adjusts base but matters less at long range
+- Sprint always goes straight upfield; Cut Outside angles toward nearer sideline (no longer same direction)
+- Contextual arrow options: Open field (8+ yards) shows Sprint, Cut Outside, Dive Forward only (Juke suppressed — can't juke a distant defender). Contested (3-8 yards) adds Juke as 4th option
+- Simplified getRunActions() — RB/WR/TE use labels from computeRunArrows directly
+
+#### FIX 2 — Field Visuals
+- **Turf stripes**: Alternating `#2d5a1e`/`#326320` every 5 yards on playing field (0-100), scroll with camera
+- **End zones**: Opponent = dark red (`#6a1a1a`) with diagonal stripes. Own = dark blue (`#1a2a5a`) with diagonal stripes. Bolder "END ZONE" text with text-shadow
+- **Hash marks**: Small 6px tick marks at each yard at NFL hash positions (~29.5% and ~70.5% from sideline), subtle opacity
+- **Goal posts**: Yellow U-shape (two uprights + crossbar) at each goal line, top-down view
+- **Midfield logo**: Subtle "TF" at 50 yard line, very low opacity (`rgba(255,255,255,0.06)`)
+- All visuals use `yS()` for camera-synced scrolling
+
+#### FIX 3 — Openness Labels Better Contrast and Duration
+- Added dark semi-transparent pill background (`rgba(0,0,0,0.6)`, rounded) behind on-field openness labels
+- Labels now pop against green field. Already persisted for full decision phase (no timer to remove)
+
+#### FIX 4 — UI Button Sound: Click Instead of Chirp
+- Replaced `SFX.tick()` sine chirp (1800→600Hz sweep) with short noise burst through bandpass filter at 500Hz
+- 25ms duration, fast attack with natural decay — sounds like tapping a physical button
+- Same volume (0.08) and mute respect
+
+---
+
 ### ALPHA 15.2 — Phantom Tackle Root Cause Fix (3 upstream paths + 1 visual polish)
 
 Backup: `tacfoot4-v27.html` (pre-ALPHA 15.2 state)
