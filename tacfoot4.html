@@ -1752,6 +1752,7 @@
                 targetPosRef.current={...targetPosRef.current,[`off-${res.cId}`]:{...catchP}};
                 visualPos.current["bc-overlay"]={...catchP};
                 ballVisPos.current={...catchP};
+                ballTargetRef.current={...catchP};
                 setBallSt("held");setBc(res.cId);setBcP({...catchP});setBallP({...catchP});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
