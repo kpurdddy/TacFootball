@@ -8,6 +8,37 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.4 — Catch Teleport Fix + Coach Names + Basic Two-Player
+
+Backup: `tacfoot4-v30.html` (pre-ALPHA 15.4 state)
+
+#### FIX 1 — Catch Position Uses Visual Position, Not Route Waypoint
+- **Bug**: After a catch, `setBcP({...tp})` snapped the receiver backward to the stale route waypoint (`curOff[action.target]`), while the ball had flown to the receiver's visual position (`flightTarget`). This caused a visible teleport on catch.
+- **Fix**: Replaced ALL 14 uses of `tp` inside the catch callback (setTimeout at ~line 1752) with `catchP` (alias for `flightTarget`). Includes: setBcP, setBallP, pursue(), nearD(), computeRunArrows(), coachRunner(), and all three catch tier position calculations.
+- `flightTarget` is defined before the setTimeout and captured by closure — verified in scope.
+- Verified: `sed -n '1755,1820p'` shows zero remaining `tp` references in catch block.
+
+#### FIX 2 — Coach Names, Descriptions, and SVG Images
+- Coach A: "Baby Boy Joey — The Gunslinger" — young, cocksure, always scheming
+- Coach B: "Grizzled Jim — The Old Fox" — forty years on the sideline, steadying presence
+- Added inline SVG portraits above each coach name on the selection screen:
+  - Joey: backward cap, confident face, blue accent, "JOE" on jersey
+  - Jim: glasses, mustache, round build, headset, gold accent, "JIM" on jersey (Andy Reid vibe)
+- Both SVGs under 15 lines each, no external assets
+
+#### FIX 3 — Basic Two-Player Mode
+- **Splash screen**: "2 PLAYER" button (purple, after difficulty select). Sets `twoPlayer=true`, `diff="regular"`, skips difficulty/practice select.
+- **P2 defense selection**: After P1 calls play and hits snap, screen shows `mode==="p2_defense"` — CSS `transform:rotate(180deg)` so P2 across the table can read it. Header: "DEFENSE — PICK YOUR FORMATION". All 5 defenses shown as buttons with descriptions.
+- **Flow**: P2 picks defense → `p2PickDef(defKey)` calls `setupPresnap(selPlay, def)` → normal presnap/snap/play flow.
+- **Refactored presnap**: Extracted common setup into `setupPresnap(play, def)`. Both `goPresnapFor` and `goPresnap` now call this. Two-player branches to `p2_defense` mode instead of `pickDef()`.
+- **Scoring**: `game.sc` changed from `{you:0, cpu:0}` to `{p1:0, p2:0}`. TD credits `p{offensePlayer}`, safety credits `p{otherPlayer}`, FG credits `p{offensePlayer}`.
+- **Offense swap**: After drive-ending events (TD, turnover, turnover on downs, safety, punt, FG), `setOffensePlayer(p=>p===1?2:1)`.
+- **Scoreboard**: Shows "P1"/"P2" in two-player, "YOU"/"CPU" in single-player. Football emoji on current offense player's label.
+- **Menu reset**: Clears `twoPlayer` and `offensePlayer` when returning to main menu.
+- All 6 `sc.you`/`sc.cpu` references updated — verified zero remaining via grep.
+
+---
+
 ### ALPHA 15.3 — Run Game Overhaul + TE Nerf
 
 Backup: `tacfoot4-v29.html` (pre-ALPHA 15.3 state)
@@ -1178,7 +1209,8 @@ Requires a season progression system (preseason → regular → playoffs) and lo
 
 | File | Description |
 |------|-------------|
-| tacfoot4.html | Current working version (ALPHA 15.3 — Run Game Overhaul + TE Nerf) |
+| tacfoot4.html | Current working version (ALPHA 15.4 — Catch Teleport Fix + Coach Names + Basic Two-Player) |
+| tacfoot4-v30.html | Before ALPHA 15.4 (catch teleport fix + coach names + two-player) |
 | tacfoot4-v29.html | Before ALPHA 15.3 (run game overhaul + TE nerf) |
 | tacfoot4-v1.html | Before first 4-bug fix pass |
 | tacfoot4-v2.html | Before sack proximity + pressure escape |
