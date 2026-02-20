@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.5.1</title>
+  <title>Tactical Football — ALPHA 15.5.2</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.5.1";
+    const GAME_VERSION = "Version ALPHA 15.5.2";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -1638,6 +1638,9 @@
               else{
                 setPbp(p=>[...p,`Caught at +${res.yds}`]);
                 const catchP={x:flightTarget.x,y:flightTarget.y};
+                // Snap cosmetic refs BEFORE setState so rAF skips this player immediately
+                bcRef.current=res.cId;
+                visualPos.current[`off-${res.cId}`]={...catchP};
                 setBallSt("held");setBc(res.cId);setBcP({...catchP});setBallP({...catchP});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
