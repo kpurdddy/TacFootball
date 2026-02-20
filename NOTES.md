@@ -8,6 +8,28 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.5.1 — Cosmetic Lerp Layer Restored
+
+Re-added smooth animation as a cosmetic-only layer on top of the pure React rendering from 15.5.
+
+**Architecture**: rAF animation loop lerps `visualPos` toward React state positions (`offP`, `defPos`). It NEVER writes game state — React owns all positions. The loop only:
+- Lerps player visual positions via `visualPos` ref
+- Updates DOM directly via `playerElRefs` for smooth 60fps movement
+- Computes ball flight parabolic arc, updates `ballFlightPos` React state for renderBall
+- Skips ball carrier DOM updates (React owns BC rendering via `bcP`)
+
+**Rendering rules**:
+- `renderPlayer`: uses `visualPos` for non-ball-carrier, `bcP` for ball carrier
+- `renderBcOverlay`: `bcP` directly (no visualPos, no DOM manipulation)
+- `renderBall`: `ballFlightPos` during flight, `ballP` otherwise (no ballElRef)
+- No `bcElRef` or `ballElRef` DOM manipulation anywhere
+
+**Restored**: lerp constants, lerpVal, visualPos, playerElRefs, animFrameId, lastAnimTime, ySRef, xSRef, targetPosRef, bcRef, animationLoop, startAnim, stopAnim, mode control useEffect, visual position teleporting in setupPresnap/snap/resetForNew.
+
+**Backup**: `tacfoot4-v30.html` (pre-15.5.1, pure React rendering without lerp)
+
+---
+
 ### ALPHA 15.5 — Structural Rendering Rewrite (rAF Removal)
 
 **Problem**: The rAF animation loop fought React over ball carrier positioning. After 7+ patches (15.4 through 15.4.2), the catch teleport bug persisted — `visualPos` for receivers was corrupted by the lerp loop overwriting positions between React state updates.

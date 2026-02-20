@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.5</title>
+  <title>Tactical Football — ALPHA 15.5.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.5";
+    const GAME_VERSION = "Version ALPHA 15.5.1";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -30,6 +30,13 @@
     };
 
     const BALL_ARC_MAX = 8;    // Max ball arc height (yards)
+    const LERP_QB = 5.0, LERP_REC = 6.0, LERP_DEF = 5.5;
+    const LERP_OL = 4.0, LERP_DL = 4.5, LERP_BALL = 6.0;
+    const ARRIVE_THRESH = 0.15;
+    const lerpVal = (cur, tgt, speed, dt) => {
+      const d = tgt - cur;
+      return Math.abs(d) < ARRIVE_THRESH ? tgt : cur + d * Math.min(1, speed * dt);
+    };
 
     // ==================== PLAYERS ====================
     const P = (id, pos, lab, spd, str, skl) => ({ id, pos, lab, spd, str, skl });
@@ -1030,6 +1037,15 @@
 
       // Ball flight arc ref (keeps arc data between rAF ticks)
       const ballFlightRef = React.useRef(null);   // {sx,sy,ex,ey,dur,start,peak} for arc
+      // Cosmetic animation layer — lerps toward React state, never writes game state
+      const visualPos = React.useRef({});
+      const playerElRefs = React.useRef({});
+      const animFrameId = React.useRef(null);
+      const lastAnimTime = React.useRef(0);
+      const ySRef = React.useRef(null);
+      const xSRef = React.useRef(null);
+      const targetPosRef = React.useRef({});
+      const bcRef = React.useRef("qb");
 
       // FIX 1 (15.1): Camera biased 70/30 upfield — player sees where they're headed
       const camTarget = React.useRef(0);
@@ -1154,23 +1170,88 @@
         }
       },[ballSt,bc,qbP,bcP,offP,phase]);
 
-      // Ball flight arc animation — the ONLY rAF in the app
+      // ==================== COSMETIC ANIMATION LAYER ====================
+      // Lerps visualPos toward React state. NEVER writes game state.
+      useEffect(() => { ySRef.current = yS; }, [yS]);
+      useEffect(() => { xSRef.current = xS; }, [xS]);
+      useEffect(() => { bcRef.current = bc; }, [bc]);
+
+      // Sync React state positions into targetPosRef for the animation loop
       useEffect(() => {
-        if (ballSt !== "air" || !ballFlightRef.current) return;
-        let rafId;
-        const tick = () => {
-          const bf = ballFlightRef.current;
-          if (!bf) return;
-          const now = performance.now();
+        const t = {};
+        for (const [id, pos] of Object.entries(offP)) if (pos) t[`off-${id}`] = pos;
+        let dPos = defPos || {};
+        if (Object.keys(olPos).length > 0) {
+          const clamped = { ...dPos };
+          for (const [dl, olId] of Object.entries(OL_BLK)) {
+            if (clamped[dl] && olPos[olId] && clamped[dl].y < olPos[olId].y) clamped[dl] = R(clamped[dl].x, olPos[olId].y);
+          }
+          dPos = clamped;
+        }
+        for (const [id, pos] of Object.entries(dPos)) if (pos) t[`def-${id}`] = pos;
+        targetPosRef.current = t;
+      }, [offP, defPos, olPos]);
+
+      const animationLoop = useCallback((now) => {
+        if (!lastAnimTime.current) lastAnimTime.current = now;
+        const dt = Math.min((now - lastAnimTime.current) / 1000, 0.05);
+        lastAnimTime.current = now;
+        const ysFn = ySRef.current, xsFn = xSRef.current;
+        if (!ysFn || !xsFn) { animFrameId.current = requestAnimationFrame(animationLoop); return; }
+
+        // Lerp players toward React-state targets
+        for (const [key, tgt] of Object.entries(targetPosRef.current)) {
+          if (!tgt) continue;
+          if (!visualPos.current[key]) visualPos.current[key] = { ...tgt };
+          const vp = visualPos.current[key];
+          let speed = LERP_REC;
+          if (key === "off-qb") speed = LERP_QB;
+          else if (key.startsWith("off-ol") || key === "off-c") speed = LERP_OL;
+          else if (key.startsWith("def-de") || key.startsWith("def-dt")) speed = LERP_DL;
+          else if (key.startsWith("def-")) speed = LERP_DEF;
+          vp.x = lerpVal(vp.x, tgt.x, speed, dt);
+          vp.y = lerpVal(vp.y, tgt.y, speed, dt);
+          // DL clamping
+          if (key.startsWith("def-")) {
+            const olId = OL_BLK[key.replace("def-","")];
+            if (olId) { const olV = visualPos.current[`off-${olId}`]; if (olV && vp.y < olV.y) vp.y = olV.y; }
+          }
+          // Skip DOM update for ball carrier — React owns BC rendering
+          const curBc = bcRef.current;
+          if (curBc !== "qb" && key === `off-${curBc}`) continue;
+          const el = playerElRefs.current[key];
+          if (el) {
+            el.style.left = (xsFn(vp.x) - (el.offsetWidth || 28) / 2) + "px";
+            el.style.top = (ysFn(vp.y) - (el.offsetHeight || 28) / 2) + "px";
+          }
+        }
+
+        // Ball flight arc — cosmetic parabola, updates React state for renderBall
+        const bf = ballFlightRef.current;
+        if (bf) {
           const t = Math.min((now - bf.start) / bf.dur, 1);
           const bx = bf.sx + (bf.ex - bf.sx) * t;
           const by = bf.sy + (bf.ey - bf.sy) * t + bf.peak * 4 * t * (1 - t);
           setBallFlightPos({x: bx, y: by});
-          if (t < 1) rafId = requestAnimationFrame(tick);
-        };
-        rafId = requestAnimationFrame(tick);
-        return () => { if (rafId) cancelAnimationFrame(rafId); };
-      }, [ballSt]);
+        }
+
+        animFrameId.current = requestAnimationFrame(animationLoop);
+      }, []);
+
+      const startAnim = useCallback(() => {
+        if (animFrameId.current) return;
+        lastAnimTime.current = 0;
+        animFrameId.current = requestAnimationFrame(animationLoop);
+      }, [animationLoop]);
+      const stopAnim = useCallback(() => {
+        if (animFrameId.current) { cancelAnimationFrame(animFrameId.current); animFrameId.current = null; }
+        lastAnimTime.current = 0;
+      }, []);
+      useEffect(() => {
+        const active = ["snapping","animating","decision","pressure","runner","contact","rpo"];
+        if (active.includes(mode)) startAnim(); else stopAnim();
+        return () => stopAnim();
+      }, [mode, startAnim, stopAnim]);
 
       const recomputePass=useCallback((ph,qP,mu,ld)=>{
         if(!defSch||!selPlay)return;
@@ -1237,6 +1318,10 @@
         const dPos=computeDefPass(def,0,sq,oP,ol,mu,null,diff,recSeeds.current,blitzUncovered.current);
         setDefPos(dPos);
         setLookDir(null);
+        // Teleport visual positions to formation (no lerp on presnap)
+        for (const [id, pos] of Object.entries(p.formation)) visualPos.current[`off-${id}`] = { ...pos };
+        for (const olId of OL_IDS) { if(ol[olId]) visualPos.current[`off-${olId}`] = { ...ol[olId] }; }
+        for (const [id, pos] of Object.entries(dPos)) visualPos.current[`def-${id}`] = { ...pos };
         ballFlightRef.current = null;
         const mxR = MX[p.name]?.[def.key] || 0;
         setCoach(coachPresnap(def, p, mxR, game, coachType));
@@ -1267,6 +1352,9 @@
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
         const sq=selPlay.formation.qb; setQbP(sq);setBallP({...sq});
         const mu=initMatchups(defSch); setMatchups(mu); setLookDir(null);
+        // Teleport visual positions to formation (no lerp on snap)
+        for (const [id, pos] of Object.entries(selPlay.formation)) visualPos.current[`off-${id}`] = { ...pos };
+        visualPos.current["bc-overlay"] = null;
         ballFlightRef.current = null;
 
         // Ball snap flight: center to QB via arc
@@ -1932,6 +2020,8 @@
         setContactData(null);setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp([]);setRpoData(null);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
         ballFlightRef.current = null;
         setBallFlightPos(null);
+        visualPos.current = {};
+        stopAnim();
       };
 
       const advance = () => {
@@ -2081,7 +2171,7 @@
         const isOL=p.pos==="OL";
         const hasBall=isOff&&ballSt==="held"&&id===bc&&!["diff_select","menu","playcall","presnap"].includes(mode);
         const key=`${team}-${id}`;
-        const vp=(hasBall&&bcP)?bcP:pos;
+        const vp=(hasBall&&bcP)?bcP:(visualPos.current[key]||pos);
         const px=xS(vp.x),py=yS(vp.y);
         if(py<-40||py>FH+40)return null;
         const shape=getPlayerShape(p.pos,isOff);
@@ -2107,7 +2197,7 @@
         if(shape.clip){
           stl.boxShadow=`0 0 0 ${hasBall?3:2}px ${bdr}, 0 1px 3px rgba(0,0,0,0.5)`;
         }
-        return(<div key={key} style={stl}>{p.lab}</div>);
+        return(<div key={key} ref={el=>{if(el)playerElRefs.current[key]=el;}} style={stl}>{p.lab}</div>);
       };
 
       const renderBcOverlay=()=>{
