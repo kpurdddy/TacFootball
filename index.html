@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.4.1</title>
+  <title>Tactical Football — ALPHA 15.4.2</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.4.1";
+    const GAME_VERSION = "Version ALPHA 15.4.2";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -1057,6 +1057,7 @@
       const lastAnimTime = React.useRef(0);       // Last frame timestamp
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
+      const catchLockRef = React.useRef(null);      // Prevents useEffect from overwriting catch position
 
       // FIX 1 (15.1): Camera biased 70/30 upfield — player sees where they're headed
       const camTarget = React.useRef(0);
@@ -1191,6 +1192,14 @@
         const t = {};
         for (const [id, pos] of Object.entries(offP)) if (pos) t[`off-${id}`] = pos;
         if (bcP && isRun && bc !== "qb") t[`off-${bc}`] = bcP; // BC overlay position
+        // Catch lock: useEffect fires before bc/bcP/isRun state flushes, so the
+        // override above misses. catchLockRef preserves the catch position until
+        // React state catches up, preventing the animation loop from lerping backward.
+        if (catchLockRef.current) {
+          t[`off-${catchLockRef.current.id}`] = catchLockRef.current.pos;
+          // Clear once React state has caught up (bc matches)
+          if (bc === catchLockRef.current.id && bcP) catchLockRef.current = null;
+        }
         // Compute displayDefPos inline (replicate OL clamping for DL)
         let dPos = defPos || {};
         if (Object.keys(olPos).length > 0) {
@@ -1251,6 +1260,8 @@
           }
 
           // Update DOM directly — use element's own dimensions
+          // SKIP ball carrier — React handles its position from bcP (FIX 15.4.2)
+          if (key === `off-${bcRef.current}` && bcRef.current !== "qb") continue;
           const el = playerElRefs.current[key];
           if (el) {
             const ew = el.offsetWidth || 28;
@@ -1260,8 +1271,8 @@
           }
         }
 
-        // BC overlay — lerp toward the ball carrier's target position
-        if (bcElRef.current) {
+        // BC overlay — SKIP when receiver has ball. React renders from bcP directly (FIX 15.4.2)
+        if (bcElRef.current && bcRef.current === "qb") {
           const curBc = bcRef.current;
           const bcTgt = targetPosRef.current["off-" + curBc];
           if (bcTgt) {
@@ -1441,7 +1452,7 @@
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
         setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(isPre(diff));if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
-        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
+        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};catchLockRef.current=null;setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
         const sq=selPlay.formation.qb; setQbP(sq);setBallP({...sq});
@@ -1727,11 +1738,8 @@
             lastThrowOpenness.current=action.op?.lab||null;
             lastThrowTarget.current=action.target;
             const tp=curOff[action.target];
-            // FIX 5: Use receiver's current visual position for ball flight so it arcs
-            // toward where the receiver actually APPEARS on screen, not the route waypoint
-            // which may be near a defender's position due to lerp lag
-            const recVisual = visualPos.current[`off-${action.target}`];
-            const flightTarget = recVisual ? { x: recVisual.x, y: recVisual.y } : tp;
+            // FIX (15.4.2): Route waypoint only. visualPos is corrupted for receivers.
+            const flightTarget = {x:tp.x, y:tp.y};
             setBallSt("air");setBallAn(true);
             const throwDist = dst(qbP, flightTarget);
             const flightMs = cl(throwDist * 40 + 200, 300, 900);
@@ -1749,16 +1757,17 @@
               else if(!res.ok){setPbp(p=>[...p,"Incomplete"]);setBallSt("ground");endPlay(0,res.msg,false,true,res.reason);}
               else{
                 setPbp(p=>[...p,`Caught at +${res.yds}`]);
-                // FIX 1 (15.4): Use receiver's CURRENT visual position at catch time, not throw-time position
-                const recNow=visualPos.current[`off-${res.cId}`];
-                const catchP=recNow?{x:recNow.x,y:recNow.y}:flightTarget;
+                // FIX (15.4.2): catchP from route waypoint. No visualPos dependency.
+                const catchP={x:flightTarget.x,y:flightTarget.y};
                 // SNAP refs immediately so no animation frame shows a stale position
                 visualPos.current[`off-${res.cId}`]={...catchP};
                 targetPosRef.current={...targetPosRef.current,[`off-${res.cId}`]:{...catchP}};
                 visualPos.current["bc-overlay"]={...catchP};
                 ballVisPos.current={...catchP};
+                if(ballElRef.current){ballElRef.current.style.left=(xSRef.current(catchP.x)-10)+"px";ballElRef.current.style.top=(ySRef.current(catchP.y)-28)+"px";}
                 ballTargetRef.current={...catchP};
                 bcRef.current=res.cId;
+                catchLockRef.current={id:res.cId,pos:{...catchP}};
                 setBallSt("held");setBc(res.cId);setBcP({...catchP});setBallP({...catchP});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
@@ -2303,7 +2312,9 @@
         const isOL=p.pos==="OL";
         const hasBall=isOff&&ballSt==="held"&&id===bc&&!["diff_select","menu","playcall","presnap"].includes(mode);
         const key=`${team}-${id}`;
-        const vp=visualPos.current[key]||pos;
+        // FIX (15.4.2): Ball carrier renders from React state (bcP), not visualPos.
+        // visualPos is corrupted for receivers. bcP is set correctly by catch/handoff code.
+        const vp=(hasBall&&bcP)?bcP:(visualPos.current[key]||pos);
         const px=xS(vp.x),py=yS(vp.y);
         if(py<-40||py>FH+40)return null;
         const shape=getPlayerShape(p.pos,isOff);
@@ -2335,7 +2346,8 @@
 
       const renderBcOverlay=()=>{
         if(!bcP||!isRun||bc==="qb"||mode==="menu"||mode==="playcall"||ballSt!=="held")return null;
-        const bv=visualPos.current["bc-overlay"]||bcP;
+        // FIX (15.4.2): Use bcP directly — visualPos["bc-overlay"] is corrupted
+        const bv=bcP;
         const sz=32,px=xS(bv.x),py=yS(bv.y);
         if(py<-40||py>FH+40)return null;
         return(<div ref={el=>{if(el)bcElRef.current=el;}} style={{position:"absolute",left:px-sz/2,top:py-sz/2,width:sz,height:sz,borderRadius:"50%",
