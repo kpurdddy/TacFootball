@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.4.2</title>
+  <title>Tactical Football — ALPHA 15.5</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.4.2";
+    const GAME_VERSION = "Version ALPHA 15.5";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -29,20 +29,7 @@
       return "No gain";
     };
 
-    // ==================== ANIMATION ENGINE ====================
-    const LERP_QB = 5.0;       // QB movement speed
-    const LERP_REC = 6.0;      // Receiver route running
-    const LERP_DEF = 5.5;      // Defensive tracking
-    const LERP_OL = 4.0;       // OL grinding
-    const LERP_DL = 4.5;       // DL penetration
-    const LERP_BC = 5.5;       // Ball carrier
-    const LERP_BALL = 6.0;     // Ball following carrier
-    const ARRIVE_THRESH = 0.15; // "arrived" threshold in game units
     const BALL_ARC_MAX = 8;    // Max ball arc height (yards)
-    const lerpVal = (cur, tgt, speed, dt) => {
-      const d = tgt - cur;
-      return Math.abs(d) < ARRIVE_THRESH ? tgt : cur + d * Math.min(1, speed * dt);
-    };
 
     // ==================== PLAYERS ====================
     const P = (id, pos, lab, spd, str, skl) => ({ id, pos, lab, spd, str, skl });
@@ -1000,6 +987,7 @@
       const [log, setLog] = useState([]);
       const [handed, setHanded] = useState(false);
       const [ballP, setBallP] = useState(R(50,-3));
+      const [ballFlightPos, setBallFlightPos] = useState(null); // {x,y} during ball flight arc
       const [ballSt, setBallSt] = useState("held");
       const [ballAn, setBallAn] = useState(false);
       const [camY, setCamY] = useState(0);
@@ -1040,24 +1028,8 @@
       const blitzUncovered = React.useRef(null);
       const practiceShown = React.useRef(new Set());
 
-      // Animation engine refs
-      const playerElRefs = React.useRef({});     // DOM element refs for direct manipulation
-      const visualPos = React.useRef({});         // {key: {x,y}} visual positions
-      const ballElRef = React.useRef(null);       // Ball DOM element
-      const ballVisPos = React.useRef({x:50,y:-3}); // Ball visual position
-      const bcElRef = React.useRef(null);         // BC overlay DOM element
-      const animFrameId = React.useRef(null);     // rAF handle
-      const animCb = React.useRef(null);          // Callback when animation completes
-      const animCbStart = React.useRef(0);        // When animThen was called
+      // Ball flight arc ref (keeps arc data between rAF ticks)
       const ballFlightRef = React.useRef(null);   // {sx,sy,ex,ey,dur,start,peak} for arc
-      const targetPosRef = React.useRef({});      // Synced target positions
-      const ballTargetRef = React.useRef({x:50,y:-3}); // Synced ball target
-      const ySRef = React.useRef(null);           // Current yS function
-      const xSRef = React.useRef(null);           // Current xS function
-      const lastAnimTime = React.useRef(0);       // Last frame timestamp
-      const bcRef = React.useRef("qb");            // Current ball carrier for rAF
-      const ballStRef = React.useRef("held");       // Current ball state for rAF
-      const catchLockRef = React.useRef(null);      // Prevents useEffect from overwriting catch position
 
       // FIX 1 (15.1): Camera biased 70/30 upfield — player sees where they're headed
       const camTarget = React.useRef(0);
@@ -1129,11 +1101,6 @@
       const yS=useCallback(y=>FH*0.7-(y-effectiveCamY)*PY,[effectiveCamY]);
       const xS=p=>(p/100)*FW;
 
-      // Sync yS/xS and target positions to refs for rAF loop (zero React deps)
-      useEffect(() => { ySRef.current = yS; }, [yS]);
-      useEffect(() => { xSRef.current = xS; }, [xS]);
-      useEffect(() => { bcRef.current = bc; }, [bc]);
-      useEffect(() => { ballStRef.current = ballSt; }, [ballSt]);
 
       const DEFAULT_OFF = useMemo(() => {
         const pos = { ...FI };
@@ -1187,172 +1154,23 @@
         }
       },[ballSt,bc,qbP,bcP,offP,phase]);
 
-      // Sync target positions to refs for animation loop
+      // Ball flight arc animation — the ONLY rAF in the app
       useEffect(() => {
-        const t = {};
-        for (const [id, pos] of Object.entries(offP)) if (pos) t[`off-${id}`] = pos;
-        if (bcP && isRun && bc !== "qb") t[`off-${bc}`] = bcP; // BC overlay position
-        // Catch lock: useEffect fires before bc/bcP/isRun state flushes, so the
-        // override above misses. catchLockRef preserves the catch position until
-        // React state catches up, preventing the animation loop from lerping backward.
-        if (catchLockRef.current) {
-          t[`off-${catchLockRef.current.id}`] = catchLockRef.current.pos;
-          // Clear once React state has caught up (bc matches)
-          if (bc === catchLockRef.current.id && bcP) catchLockRef.current = null;
-        }
-        // Compute displayDefPos inline (replicate OL clamping for DL)
-        let dPos = defPos || {};
-        if (Object.keys(olPos).length > 0) {
-          const clamped = { ...dPos };
-          for (const [dl, olId] of Object.entries(OL_BLK)) {
-            if (clamped[dl] && olPos[olId] && clamped[dl].y < olPos[olId].y) clamped[dl] = R(clamped[dl].x, olPos[olId].y);
-          }
-          dPos = clamped;
-        }
-        for (const [id, pos] of Object.entries(dPos)) if (pos) t[`def-${id}`] = pos;
-        targetPosRef.current = t;
-      }, [offP, defPos, olPos, bcP, isRun, bc]);
-
-      useEffect(() => { ballTargetRef.current = ballP; }, [ballP]);
-
-      // ==================== rAF ANIMATION LOOP ====================
-      const animationLoop = useCallback((now) => {
-        if (!lastAnimTime.current) lastAnimTime.current = now;
-        const dtRaw = (now - lastAnimTime.current) / 1000; // seconds
-        const dt = Math.min(dtRaw, 0.05); // cap at 50ms to avoid jumps
-        lastAnimTime.current = now;
-
-        const ysFn = ySRef.current;
-        const xsFn = xSRef.current;
-        if (!ysFn || !xsFn) { animFrameId.current = requestAnimationFrame(animationLoop); return; }
-
-        const targets = targetPosRef.current;
-        let allArrived = true;
-
-        // Lerp each player toward target
-        for (const [key, tgt] of Object.entries(targets)) {
-          if (!tgt) continue;
-          if (!visualPos.current[key]) visualPos.current[key] = { ...tgt };
-          const vp = visualPos.current[key];
-
-          // Pick speed based on player type
-          let speed = LERP_REC;
-          if (key === "off-qb") speed = LERP_QB;
-          else if (key.startsWith("off-ol") || key === "off-c") speed = LERP_OL;
-          else if (key.startsWith("def-de") || key.startsWith("def-dt")) speed = LERP_DL;
-          else if (key.startsWith("def-")) speed = LERP_DEF;
-          else if (key.startsWith("off-")) speed = LERP_REC;
-
-          const nx = lerpVal(vp.x, tgt.x, speed, dt);
-          const ny = lerpVal(vp.y, tgt.y, speed, dt);
-
-          if (nx !== vp.x || ny !== vp.y) allArrived = false;
-          vp.x = nx;
-          vp.y = ny;
-
-          // DL clamping: DL visual y cannot go past corresponding OL visual y
-          if (key.startsWith("def-")) {
-            const olId = OL_BLK[key.replace("def-","")];
-            if (olId) {
-              const olVis = visualPos.current[`off-${olId}`];
-              if (olVis && vp.y < olVis.y) vp.y = olVis.y;
-            }
-          }
-
-          // Update DOM directly — use element's own dimensions
-          // SKIP ball carrier — React handles its position from bcP (FIX 15.4.2)
-          if (key === `off-${bcRef.current}` && bcRef.current !== "qb") continue;
-          const el = playerElRefs.current[key];
-          if (el) {
-            const ew = el.offsetWidth || 28;
-            const eh = el.offsetHeight || 28;
-            el.style.left = (xsFn(vp.x) - ew/2) + "px";
-            el.style.top = (ysFn(vp.y) - eh/2) + "px";
-          }
-        }
-
-        // BC overlay — SKIP when receiver has ball. React renders from bcP directly (FIX 15.4.2)
-        if (bcElRef.current && bcRef.current === "qb") {
-          const curBc = bcRef.current;
-          const bcTgt = targetPosRef.current["off-" + curBc];
-          if (bcTgt) {
-            if (!visualPos.current["bc-overlay"]) visualPos.current["bc-overlay"] = { ...bcTgt };
-            const bv = visualPos.current["bc-overlay"];
-            bv.x = lerpVal(bv.x, bcTgt.x, LERP_BC, dt);
-            bv.y = lerpVal(bv.y, bcTgt.y, LERP_BC, dt);
-            if (bv.x !== bcTgt.x || bv.y !== bcTgt.y) allArrived = false;
-            bcElRef.current.style.left = (xsFn(bv.x) - 16) + "px";
-            bcElRef.current.style.top = (ysFn(bv.y) - 16) + "px";
-          }
-        }
-
-        // Ball position
-        const bFlight = ballFlightRef.current;
-        if (bFlight) {
-          // Ball in flight — parabolic arc
-          const elapsed = now - bFlight.start;
-          const t = Math.min(elapsed / bFlight.dur, 1);
-          const bx = bFlight.sx + (bFlight.ex - bFlight.sx) * t;
-          const by = bFlight.sy + (bFlight.ey - bFlight.sy) * t + bFlight.peak * 4 * t * (1 - t);
-          ballVisPos.current.x = bx;
-          ballVisPos.current.y = by;
-          if (t >= 1) ballFlightRef.current = null; else allArrived = false; // flight complete
-        } else {
-          // Lerp ball toward target
-          const bt = ballTargetRef.current;
-          if (bt) {
-            ballVisPos.current.x = lerpVal(ballVisPos.current.x, bt.x, LERP_BALL, dt);
-            ballVisPos.current.y = lerpVal(ballVisPos.current.y, bt.y, LERP_BALL, dt);
-            if (ballVisPos.current.x !== bt.x || ballVisPos.current.y !== bt.y) allArrived = false;
-          }
-        }
-
-        // Update ball DOM
-        if (ballElRef.current) {
-          const bx = xsFn(ballVisPos.current.x);
-          const by = ysFn(ballVisPos.current.y);
-          const heldOff = ballStRef.current === "held" ? -18 : 0;
-          ballElRef.current.style.left = (bx - 10) + "px";
-          ballElRef.current.style.top = (by - 10 + heldOff) + "px";
-        }
-
-        // Check if animation callback should fire
-        if (animCb.current && allArrived && !bFlight) {
-          const elapsed = performance.now() - animCbStart.current;
-          if (elapsed >= animCb.current.minDelay) {
-            const cb = animCb.current;
-            animCb.current = null;
-            cb.fn();
-          }
-        }
-
-        animFrameId.current = requestAnimationFrame(animationLoop);
-      }, []);
-
-      const startAnim = useCallback(() => {
-        if (animFrameId.current) return; // already running
-        lastAnimTime.current = 0;
-        animFrameId.current = requestAnimationFrame(animationLoop);
-      }, [animationLoop]);
-
-      const stopAnim = useCallback(() => {
-        if (animFrameId.current) {
-          cancelAnimationFrame(animFrameId.current);
-          animFrameId.current = null;
-        }
-        lastAnimTime.current = 0;
-      }, []);
-
-      // Start/stop animation loop based on mode
-      useEffect(() => {
-        const activeModes = ["snapping","animating","decision","pressure","runner","contact","rpo"];
-        if (activeModes.includes(mode)) {
-          startAnim();
-        } else {
-          stopAnim();
-        }
-        return () => stopAnim();
-      }, [mode, startAnim, stopAnim]);
+        if (ballSt !== "air" || !ballFlightRef.current) return;
+        let rafId;
+        const tick = () => {
+          const bf = ballFlightRef.current;
+          if (!bf) return;
+          const now = performance.now();
+          const t = Math.min((now - bf.start) / bf.dur, 1);
+          const bx = bf.sx + (bf.ex - bf.sx) * t;
+          const by = bf.sy + (bf.ey - bf.sy) * t + bf.peak * 4 * t * (1 - t);
+          setBallFlightPos({x: bx, y: by});
+          if (t < 1) rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+        return () => { if (rafId) cancelAnimationFrame(rafId); };
+      }, [ballSt]);
 
       const recomputePass=useCallback((ph,qP,mu,ld)=>{
         if(!defSch||!selPlay)return;
@@ -1419,14 +1237,6 @@
         const dPos=computeDefPass(def,0,sq,oP,ol,mu,null,diff,recSeeds.current,blitzUncovered.current);
         setDefPos(dPos);
         setLookDir(null);
-        for (const [id, pos] of Object.entries(p.formation)) {
-          visualPos.current[`off-${id}`] = { ...pos };
-        }
-        for (const olId of OL_IDS) { if(ol[olId]) visualPos.current[`off-${olId}`] = { ...ol[olId] }; }
-        for (const [id, pos] of Object.entries(dPos)) {
-          visualPos.current[`def-${id}`] = { ...pos };
-        }
-        ballVisPos.current = { ...sq };
         ballFlightRef.current = null;
         const mxR = MX[p.name]?.[def.key] || 0;
         setCoach(coachPresnap(def, p, mxR, game, coachType));
@@ -1452,19 +1262,12 @@
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
         setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(isPre(diff));if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
-        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};catchLockRef.current=null;setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
+        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
         const sq=selPlay.formation.qb; setQbP(sq);setBallP({...sq});
         const mu=initMatchups(defSch); setMatchups(mu); setLookDir(null);
-        // Teleport visual positions to formation (no lerp on snap)
-        for (const [id, pos] of Object.entries(selPlay.formation)) {
-          visualPos.current[`off-${id}`] = { ...pos };
-        }
-        visualPos.current["bc-overlay"] = null;
-        ballVisPos.current = { ...selPlay.formation.c };
         ballFlightRef.current = null;
-        animCb.current = null;
 
         // Ball snap flight: center to QB via arc
         setBallP({...selPlay.formation.c});setBallSt("air");setBallAn(true);
@@ -1557,18 +1360,12 @@
       const endPlay=(yds,desc,turnover=false,incomplete=false,reason="")=>{
         // FIX 1 (15.1.2): UNIVERSAL PHANTOM TACKLE GATE
         // If this is a tackle play (not TD/incomplete/turnover), verify a defender is actually close.
-        // Uses visual positions first, falls back to game-state defPos.
+        // Uses game-state defPos for defender proximity check.
         const isTacklePlay=!turnover&&!incomplete&&(game.bo+yds)<100;
         if(isTacklePlay){
           const carrierPos=bcP||(bc==="qb"?qbP:null);
           if(carrierPos){
-            // Build defender position map from visual positions, fall back to defPos
-            const dPosMap={};
-            for(const [did,dp] of Object.entries(defPos)){
-              const vp=visualPos.current[`def-${did}`];
-              dPosMap[did]=vp||dp;
-            }
-            const nd=nearD(carrierPos,dPosMap);
+            const nd=nearD(carrierPos,defPos);
             if(nd.d>=3){
               // No defender within 3 yards — phantom tackle! Abort endPlay, return to runner mode.
               const bonus=rnd(3,6);
@@ -1609,9 +1406,7 @@
 
       const animThen=(fn,minDelay)=>{
         setMode("animating");
-        animCbStart.current = performance.now();
-        animCb.current = { fn, minDelay: minDelay || 400 };
-        startAnim();
+        setTimeout(fn, minDelay || 400);
       };
 
       const doRPO=ch=>{
@@ -1636,8 +1431,6 @@
           for (const p of DEF) { if (p.pos === "LB" && !defAdj[p.id]) { const s = defSch.pos[p.id]; newDef[p.id] = R(s.x + (rbPos.x - s.x) * 0.12, s.y + (rbPos.y - s.y) * 0.08); } }
           for (const p of DEF) { if ((p.pos === "CB" || p.pos === "S") && !defAdj[p.id]) { newDef[p.id] = defSch.pos[p.id]; } }
           setDefPos(newDef);setOlPos(rOL);setHoleInfo(hi);
-          // Snap defender visuals to blocked positions so the hole is visible at handoff
-          for(const [did, pos] of Object.entries(newDef)){visualPos.current[`def-${did}`]={...pos};}
           if(ch==="handoff_bad"){
             setNarr("Handoff into traffic!");setCoach("Brace for contact!");
             const dp=pursue(newDef,rbPos,1,"rb");const dp2=pursue(dp,rbPos,2,"rb");setDefPos(dp2);
@@ -1671,7 +1464,7 @@
           const qpFlightMs = cl(qpThrowDist * 35 + 150, 250, 700);
           const qpArcPeak = Math.min(BALL_ARC_MAX * 0.6, qpThrowDist * 0.15);
           ballFlightRef.current = {
-            sx: ballVisPos.current.x, sy: ballVisPos.current.y,
+            sx: qbP.x, sy: qbP.y,
             ex: wrPos.x, ey: wrPos.y,
             dur: qpFlightMs, start: performance.now(), peak: qpArcPeak
           };
@@ -1738,14 +1531,13 @@
             lastThrowOpenness.current=action.op?.lab||null;
             lastThrowTarget.current=action.target;
             const tp=curOff[action.target];
-            // FIX (15.4.2): Route waypoint only. visualPos is corrupted for receivers.
             const flightTarget = {x:tp.x, y:tp.y};
             setBallSt("air");setBallAn(true);
             const throwDist = dst(qbP, flightTarget);
             const flightMs = cl(throwDist * 40 + 200, 300, 900);
             const arcPeak = Math.min(BALL_ARC_MAX, throwDist * 0.25);
             ballFlightRef.current = {
-              sx: ballVisPos.current.x, sy: ballVisPos.current.y,
+              sx: qbP.x, sy: qbP.y,
               ex: flightTarget.x, ey: flightTarget.y,
               dur: flightMs, start: performance.now(), peak: arcPeak
             };
@@ -1757,17 +1549,7 @@
               else if(!res.ok){setPbp(p=>[...p,"Incomplete"]);setBallSt("ground");endPlay(0,res.msg,false,true,res.reason);}
               else{
                 setPbp(p=>[...p,`Caught at +${res.yds}`]);
-                // FIX (15.4.2): catchP from route waypoint. No visualPos dependency.
                 const catchP={x:flightTarget.x,y:flightTarget.y};
-                // SNAP refs immediately so no animation frame shows a stale position
-                visualPos.current[`off-${res.cId}`]={...catchP};
-                targetPosRef.current={...targetPosRef.current,[`off-${res.cId}`]:{...catchP}};
-                visualPos.current["bc-overlay"]={...catchP};
-                ballVisPos.current={...catchP};
-                if(ballElRef.current){ballElRef.current.style.left=(xSRef.current(catchP.x)-10)+"px";ballElRef.current.style.top=(ySRef.current(catchP.y)-28)+"px";}
-                ballTargetRef.current={...catchP};
-                bcRef.current=res.cId;
-                catchLockRef.current={id:res.cId,pos:{...catchP}};
                 setBallSt("held");setBc(res.cId);setBcP({...catchP});setBallP({...catchP});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
@@ -1782,16 +1564,9 @@
                   }
                 }
                 setDefPos(dp);
-                // FIX 1 (15.1.1): Three-tier YAC — use visual positions with game-state sanity check
-                const visualDefs={};
-                for(const [did] of Object.entries(dp)){
-                  const vp=visualPos.current[`def-${did}`];
-                  if(vp) visualDefs[did]=vp;
-                  else visualDefs[did]=dp[did];
-                }
-                const catchNd=nearD(catchP,visualDefs);
-                const gameNd=nearD(catchP,dp);
-                const effectiveDist=Math.max(catchNd.d, gameNd.d * 0.7);
+                // Three-tier YAC — use game-state defender positions
+                const catchNd=nearD(catchP,dp);
+                const effectiveDist=catchNd.d;
                 if(effectiveDist<2){
                   // TIER 1: Defender genuinely within 2 yards — immediate tackle
                   const tackleGain=rnd(0,1);
@@ -1833,7 +1608,6 @@
             setBcP(rbPos);setBallP({...rbPos});setBallSt("held");
             setRunAct(0);setNarr("Handoff to RB!");
             const dp=pursue(defPos,rbPos,1,"rb");setDefPos(dp);
-            for(const [did, pos] of Object.entries(dp)){visualPos.current[`def-${did}`]={...pos};}
             const arrows=computeRunArrows(rbPos,dp,game,0,"rb",holeInfo,diff);setRunArrows(arrows);
             setCoach(coachRunner(rbPos,dp,arrows,game,coachType));
             animThen(()=>{setPhase(np);setMode("runner");},ANIM);
@@ -1847,7 +1621,6 @@
             setRunAct(0);setNarr("STATUE OF LIBERTY! RB takes it!");
             setCoach("🗽 They didn't see it! RB has the ball — find daylight!");
             const dp=pursue(defPos,rbPos,1,"rb");setDefPos(dp);
-            for(const [did, pos] of Object.entries(dp)){visualPos.current[`def-${did}`]={...pos};}
             const arrows=computeRunArrows(rbPos,dp,game,0,"rb",holeInfo,diff);setRunArrows(arrows);
             animThen(()=>{setPhase(np);setMode("runner");},ANIM);
             break;
@@ -2157,12 +1930,8 @@
         setCamY(0);setRunAct(0);setNarr("");setCoach("");setDefPos({});
         setOlPos({});setRoutes({});setIsCatch(false);setPCat(null);setShowGhost(false);
         setContactData(null);setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp([]);setRpoData(null);if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
-        // Clear animation state
-        visualPos.current = {};
-        ballVisPos.current = { x:50, y:-3 };
         ballFlightRef.current = null;
-        animCb.current = null;
-        stopAnim();
+        setBallFlightPos(null);
       };
 
       const advance = () => {
@@ -2312,9 +2081,7 @@
         const isOL=p.pos==="OL";
         const hasBall=isOff&&ballSt==="held"&&id===bc&&!["diff_select","menu","playcall","presnap"].includes(mode);
         const key=`${team}-${id}`;
-        // FIX (15.4.2): Ball carrier renders from React state (bcP), not visualPos.
-        // visualPos is corrupted for receivers. bcP is set correctly by catch/handoff code.
-        const vp=(hasBall&&bcP)?bcP:(visualPos.current[key]||pos);
+        const vp=(hasBall&&bcP)?bcP:pos;
         const px=xS(vp.x),py=yS(vp.y);
         if(py<-40||py>FH+40)return null;
         const shape=getPlayerShape(p.pos,isOff);
@@ -2337,20 +2104,17 @@
           fontSize:isOL?7:9,fontWeight:700,color:"#fff",zIndex:isOL?9:10,
           fontFamily:"monospace",boxShadow:"0 1px 3px rgba(0,0,0,0.5)"
         };
-        // For clip-path shapes, use an outline effect via box-shadow instead of border
         if(shape.clip){
           stl.boxShadow=`0 0 0 ${hasBall?3:2}px ${bdr}, 0 1px 3px rgba(0,0,0,0.5)`;
         }
-        return(<div key={key} ref={el=>{if(el)playerElRefs.current[key]=el;}} style={stl}>{p.lab}</div>);
+        return(<div key={key} style={stl}>{p.lab}</div>);
       };
 
       const renderBcOverlay=()=>{
         if(!bcP||!isRun||bc==="qb"||mode==="menu"||mode==="playcall"||ballSt!=="held")return null;
-        // FIX (15.4.2): Use bcP directly — visualPos["bc-overlay"] is corrupted
-        const bv=bcP;
-        const sz=32,px=xS(bv.x),py=yS(bv.y);
+        const sz=32,px=xS(bcP.x),py=yS(bcP.y);
         if(py<-40||py>FH+40)return null;
-        return(<div ref={el=>{if(el)bcElRef.current=el;}} style={{position:"absolute",left:px-sz/2,top:py-sz/2,width:sz,height:sz,borderRadius:"50%",
+        return(<div style={{position:"absolute",left:px-sz/2,top:py-sz/2,width:sz,height:sz,borderRadius:"50%",
           background:"#1e56a0",border:"3px solid #fbbf24",display:"flex",alignItems:"center",justifyContent:"center",
           fontSize:9,fontWeight:700,color:"#fff",zIndex:12,fontFamily:"monospace"
         }}>{gP(OFF,bc)?.lab}</div>);
@@ -2358,12 +2122,12 @@
 
       const renderBall=()=>{
         if(["diff_select","menu","playcall","fourth"].includes(mode))return null;
-        const bvp=ballVisPos.current;
-        const bx=xS(bvp.x),by=yS(bvp.y);
+        const bpos=(ballSt==="air"&&ballFlightPos)?ballFlightPos:ballP;
+        const bx=xS(bpos.x),by=yS(bpos.y);
         if(by<-40||by>FH+40)return null;
         const isAir=ballSt==="air",isHeld=ballSt==="held";
         return(<>
-          <div ref={el=>{if(el)ballElRef.current=el;}} style={{position:"absolute",left:bx-10,top:by-10+(isHeld?-18:0),width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",
+          <div style={{position:"absolute",left:bx-10,top:by-10+(isHeld?-18:0),width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",
             fontSize:isAir?18:15,zIndex:isAir?25:isHeld?20:16,
             transform:`${ballSt==="ground"?"rotate(45deg)":ballSt==="loose"?"rotate(120deg)":isAir?"rotate(-30deg)":"rotate(-15deg)"} scale(${isAir?1.3:1})`,
             filter:isAir?"drop-shadow(0 4px 8px rgba(0,0,0,0.6))":isHeld?"drop-shadow(0 1px 2px rgba(0,0,0,0.4))":"none",
