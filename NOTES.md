@@ -8,6 +8,44 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.5 — Structural Rendering Rewrite (rAF Removal)
+
+**Problem**: The rAF animation loop fought React over ball carrier positioning. After 7+ patches (15.4 through 15.4.2), the catch teleport bug persisted — `visualPos` for receivers was corrupted by the lerp loop overwriting positions between React state updates.
+
+**Fix**: Deleted the entire rAF animation engine and replaced with pure React rendering.
+
+**Deleted (net -472 lines)**:
+- All lerp constants (`LERP_QB`, `LERP_REC`, `LERP_DEF`, `LERP_OL`, `LERP_DL`, `LERP_BC`, `LERP_BALL`, `ARRIVE_THRESH`) and `lerpVal` function
+- 17 refs: `playerElRefs`, `visualPos`, `ballElRef`, `ballVisPos`, `bcElRef`, `animFrameId`, `animCb`, `animCbStart`, `targetPosRef`, `ballTargetRef`, `ySRef`, `xSRef`, `lastAnimTime`, `bcRef`, `ballStRef`, `catchLockRef`
+- `animationLoop` useCallback (~110 lines), `startAnim`, `stopAnim`
+- Mode-control useEffect (start/stop based on game mode)
+- 4 ref-syncing useEffects (ySRef, xSRef, bcRef, ballStRef)
+- All `visualPos.current[...]` writes in setupPresnap, snap, catch handler, handoff, statue handoff, RPO handoff
+- All direct DOM manipulation (`el.style.left/top`) throughout game logic
+- `catchLockRef` mechanism (no longer needed without rAF race)
+
+**Replaced with**:
+- `renderPlayer`: uses `pos` param directly (from `offP`/`displayDefPos`), `bcP` override for ball carrier. No refs, no DOM manipulation.
+- `renderBcOverlay`: uses `bcP` directly. No refs.
+- `renderBall`: uses new `ballFlightPos` state during flight, `ballP` otherwise. No refs.
+- Single `useEffect` with rAF for ball flight arc animation only — updates React state `setBallFlightPos` each frame.
+- `animThen`: simplified from rAF-arrival-detection to `setMode("animating") + setTimeout`.
+- `endPlay` phantom tackle gate: uses `defPos` directly instead of `visualPos` fallback.
+- Catch YAC tiers: uses `dp` (game-state defender positions) directly instead of `visualDefs` hybrid.
+
+**Trade-off**: Players jump between positions (no smooth lerp). Correct positions guaranteed — rAF can never corrupt anything because it doesn't exist. Smooth animation can be re-added later as a cosmetic-only layer.
+
+**Backup**: `tacfoot4-v29.html` (pre-15.5, last version with rAF)
+
+---
+
+### ALPHA 15.4.2 — Catch Teleport Fix (rAF Skip + Ball DOM Snap)
+
+- Removed `ballStRef.current === "held"` guard from rAF skip so animation loop never touches receiver position once they become ball carrier
+- Snapped ball DOM element directly on catch to prevent 1-frame visual glitch
+
+---
+
 ### ALPHA 15.4.1 — Catch Teleport Fix (Hardened)
 
 **Bug**: Receiver still teleported backward on catch despite 15.4's `flightTarget` fix. Root cause: `flightTarget` was captured at throw time, but receiver keeps running their route during ball flight (300-900ms). By catch time, `flightTarget` is stale.
