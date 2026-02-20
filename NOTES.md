@@ -1,8 +1,68 @@
 # TacFootball Development Notes
 
-## Current State (as of 2026-02-19)
+## Current State (as of 2026-02-20)
 
-Single-file React app (`tacfoot4.html`) — tactical football game with play calling, QB decision-making, run/pass mechanics, RPO system, contact resolution, play-by-play logging, and commentary system.
+Single-file React app (`tacfoot4.html`) — tactical football game with play calling, QB decision-making, run/pass mechanics, RPO system, contact resolution, play-by-play logging, and commentary system. Architecture: useReducer + CSS transitions.
+
+---
+
+## Changes Made 2026-02-20
+
+### ALPHA 16.0 — Full Architecture Rewrite
+
+**Backup**: `tacfoot4-v30.html` (pre-ALPHA 16.0, last rAF/useState version)
+
+#### Architecture Changes
+
+**State Management**: Replaced ~40 individual `useState` calls with single `useReducer` (MERGE pattern).
+- `function reducer(s, a) { return a.type==='MERGE' ? {...s, ...a.payload} : s; }`
+- All state accessed via `s.foo`, all updates via `d({foo: val, bar: val2})`
+- Atomic multi-field updates — no cascading setState calls
+
+**Player Movement**: Replaced rAF animation loop with CSS transitions.
+- `.player-move { transition: left 0.35s ease, top 0.35s ease; }`
+- `.no-transition` class for instant position snaps between plays
+- `noTransition` state flag toggled via `requestAnimationFrame(() => d({noTransition: false}))`
+- TRANS_DUR = 350ms replaces ANIM = 550ms
+
+**Ball Flight**: Replaced rAF parabolic arc with CSS `@keyframes ballFly` animation.
+- CSS custom properties: `--bfx0`, `--bfy0`, `--bfxM`, `--bfyM`, `--bfx1`, `--bfy1`, `--bfDur`
+- `.ball-flight` class triggers animation, `ballFlight` state holds parameters
+- Separate `.ball-move` class for held/ground ball transitions
+
+**Camera**: Replaced rAF lerp with `useMemo` (effectiveCamY).
+- Direct computation from state — no animation refs
+- CSS `transition: top CAM_DUR` on field elements handles smoothing
+- CAM_DUR = 500ms
+
+**Responsive Layout**: Removed fixed FW=680.
+- `.field-container { width:100%; max-width:800px; height:74vh; min-height:480px; max-height:700px; }`
+- ResizeObserver on fieldRef computes `FW`, `FH`, `PY` dynamically
+- FIELD_YARDS_VISIBLE = 42
+
+#### Deleted (from 15.x)
+
+- All animation refs: `visualPos`, `targetPosRef`, `ballTargetRef`, `bcRef`, `ballStRef`, `catchLockRef`, `playerElRefs`, `bcElRef`, `ballElRef`, `animFrameId`, `animCb`, `ballFlightRef`, `ySRef`, `xSRef`, `lastAnimTime`
+- `animationLoop` useCallback, `startAnim`, `stopAnim`
+- All ref-syncing useEffects
+- `animThen` function (replaced by `setTimeout(fn, TRANS_DUR)`)
+- All direct DOM manipulation (`el.style.left/top`)
+
+#### Preserved Verbatim
+
+- All 18 plays (7 run, 8 pass, 3 trick) with routes, formations, matchup matrix
+- All 5 defenses with coverage logic
+- Coach dialogue system (Baby Boy Joey + Grizzled Jim)
+- Commentary booth (DK + Kiki)
+- Sound effects (Web Audio API)
+- RPO system, contact resolution, play-by-play
+- Practice/Preseason overlay tutorials
+- Two-player mode flow
+- Scoring, downs, field goals, punts
+
+#### File Info
+- tacfoot4.html: 2920 lines (down from ~3200)
+- Built from 6 temp files: part1 (game data/logic, 974 lines) + parts 2a-2e (component, ~1946 lines)
 
 ---
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.2.1</title>
+  <title>Tactical Football — ALPHA 15.4.1</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.3";
+    const GAME_VERSION = "Version ALPHA 15.4.1";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -472,17 +472,22 @@
 
     function doThrow(recId,ph,offP,defP,scheme,pi,lookDir,preProbs,diff) {
       const pr=preProbs||throwProbs(recId,ph,offP,defP,scheme,pi,lookDir,diff),rP=offP[recId];
-      if(Math.random()*100<pr.ip) return {ok:false,int:true,yds:0,msg:`INTERCEPTED targeting ${recId.toUpperCase()}!`,tP:rP,reason:"Defender read the throw and jumped the route."};
+      // Defender proximity gate — scale interception chance by nearest defender distance
+      let nearDefDist=99;
+      for(const dp of Object.values(defP)){if(dp){const d=dst(rP,dp);if(d<nearDefDist)nearDefDist=d;}}
+      const effectiveIp=nearDefDist>=8?0:nearDefDist>=5?Math.round(pr.ip*0.15):nearDefDist>=3?Math.round(pr.ip*0.5):pr.ip;
+      if(Math.random()*100<effectiveIp) return {ok:false,int:true,yds:0,msg:`INTERCEPTED targeting ${recId.toUpperCase()}!`,tP:rP,reason:"Defender read the throw and jumped the route."};
       if(Math.random()*100>pr.cp) {
+        const defClose=nearDefDist<4;
         const reasons = isPre(diff)?[
           {msg:"throw went too high",why:"Defenders closing in made it hard to throw accurately — the ball sailed over the receiver's head."},
           {msg:"throw hit the ground",why:"The QB couldn't plant his feet with defenders closing in — the throw bounced short."},
-          {msg:"defender knocked it away",why:`The defender was right on the receiver (${pr.op.lab.toLowerCase()}) and got a hand on the ball.`},
+          ...(defClose?[{msg:"defender knocked it away",why:`The defender was right on the receiver (${pr.op.lab.toLowerCase()}) and got a hand on the ball.`}]:[]),
           {msg:"receiver couldn't hold on",why:"The receiver couldn't hang onto the ball — the throw was slightly off target."},
         ]:[
           {msg:"ball sails high",why:"Pressure forced a bad throw — the ball went over the receiver's head."},
           {msg:"pass hits turf",why:"QB couldn't set his feet under pressure — the ball bounced short."},
-          {msg:"CB bats it away",why:`The cornerback was in tight coverage (${pr.op.lab.toLowerCase()}) and got a hand on it.`},
+          ...(defClose?[{msg:"CB bats it away",why:`The cornerback was in tight coverage (${pr.op.lab.toLowerCase()}) and got a hand on it.`}]:[]),
           {msg:"can't haul it in",why:"The receiver couldn't secure the catch — ball was slightly off target."},
         ];
         const r=pick(reasons);
@@ -977,8 +982,10 @@
       },[]);
 
       const [coachType, setCoachType] = useState(null);
-      const [diff, setDiff] = useState(null); 
-      const [game, setGame] = useState({bo:25,dn:1,dst:10,sc:{you:0,cpu:0},q:1,pr:0,lastPlays:[]});
+      const [diff, setDiff] = useState(null);
+      const [twoPlayer, setTwoPlayer] = useState(false);
+      const [offensePlayer, setOffensePlayer] = useState(1);
+      const [game, setGame] = useState({bo:25,dn:1,dst:10,sc:{p1:0,p2:0},q:1,pr:0,lastPlays:[]});
       const [mode, setMode] = useState("diff_select");
       const [pCat, setPCat] = useState(null);
       const [selPlay, setSelPlay] = useState(null);
@@ -1050,6 +1057,7 @@
       const lastAnimTime = React.useRef(0);       // Last frame timestamp
       const bcRef = React.useRef("qb");            // Current ball carrier for rAF
       const ballStRef = React.useRef("held");       // Current ball state for rAF
+      const catchLockRef = React.useRef(null);      // Prevents useEffect from overwriting catch position
 
       // FIX 1 (15.1): Camera biased 70/30 upfield — player sees where they're headed
       const camTarget = React.useRef(0);
@@ -1184,6 +1192,14 @@
         const t = {};
         for (const [id, pos] of Object.entries(offP)) if (pos) t[`off-${id}`] = pos;
         if (bcP && isRun && bc !== "qb") t[`off-${bc}`] = bcP; // BC overlay position
+        // Catch lock: useEffect fires before bc/bcP/isRun state flushes, so the
+        // override above misses. catchLockRef preserves the catch position until
+        // React state catches up, preventing the animation loop from lerping backward.
+        if (catchLockRef.current) {
+          t[`off-${catchLockRef.current.id}`] = catchLockRef.current.pos;
+          // Clear once React state has caught up (bc matches)
+          if (bc === catchLockRef.current.id && bcP) catchLockRef.current = null;
+        }
         // Compute displayDefPos inline (replicate OL clamping for DL)
         let dPos = defPos || {};
         if (Object.keys(olPos).length > 0) {
@@ -1244,6 +1260,9 @@
           }
 
           // Update DOM directly — use element's own dimensions
+          // SKIP ball carrier — React handles its position from bcP (FIX 15.4.2)
+          const curBcKey = bcRef.current !== "qb" ? `off-${bcRef.current}` : null;
+          if (curBcKey && key === curBcKey && ballStRef.current === "held") continue;
           const el = playerElRefs.current[key];
           if (el) {
             const ew = el.offsetWidth || 28;
@@ -1253,8 +1272,8 @@
           }
         }
 
-        // BC overlay — lerp toward the ball carrier's target position
-        if (bcElRef.current) {
+        // BC overlay — SKIP when receiver has ball. React renders from bcP directly (FIX 15.4.2)
+        if (bcElRef.current && bcRef.current === "qb") {
           const curBc = bcRef.current;
           const bcTgt = targetPosRef.current["off-" + curBc];
           if (bcTgt) {
@@ -1389,8 +1408,8 @@
 
       const selectPlay=p=>{setSelPlay(p);setRoutes(getRoutes(p));setShowGhost(true);};
       const quickSnap=p=>{setSelPlay(p);setRoutes(getRoutes(p));setShowGhost(true);setTimeout(()=>goPresnapFor(p),0);};
-      const goPresnapFor=(p)=>{
-        const def=pickDef(game.dn,game.dst,game.bo,diff);
+      // Shared presnap setup: accepts a play and defense object
+      const setupPresnap=(p,def)=>{
         setDefSch(def);
         const sq=p.formation.qb; setQbP(sq);
         const mu=initMatchups(def); setMatchups(mu);
@@ -1401,7 +1420,6 @@
         const dPos=computeDefPass(def,0,sq,oP,ol,mu,null,diff,recSeeds.current,blitzUncovered.current);
         setDefPos(dPos);
         setLookDir(null);
-        // Teleport visual positions to formation for presnap
         for (const [id, pos] of Object.entries(p.formation)) {
           visualPos.current[`off-${id}`] = { ...pos };
         }
@@ -1415,32 +1433,19 @@
         setCoach(coachPresnap(def, p, mxR, game, coachType));
         setMode("presnap");
       };
+      const goPresnapFor=(p)=>{
+        if(twoPlayer){ setMode("p2_defense"); return; }
+        setupPresnap(p, pickDef(game.dn,game.dst,game.bo,diff));
+      };
+      // P2 picks defense in two-player mode
+      const p2PickDef=(defKey)=>{
+        const def={key:defKey,...DEFS[defKey]};
+        setupPresnap(selPlay, def);
+      };
 
       const goPresnap=()=>{
-        const def=pickDef(game.dn,game.dst,game.bo,diff);
-        setDefSch(def);
-        const sq=selPlay.formation.qb; setQbP(sq);
-        const mu=initMatchups(def); setMatchups(mu);
-        const ol=computePassOL(mu); setOlPos(ol);
-        const oP={...selPlay.formation,qb:sq,...ol};
-        recSeeds.current={wr1:1,wr2:1,te:1,rb:1};
-        blitzUncovered.current=def.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
-        const dPos=computeDefPass(def,0,sq,oP,ol,mu,null,diff,recSeeds.current,blitzUncovered.current);
-        setDefPos(dPos);
-        setLookDir(null);
-        // Teleport visual positions to formation for presnap
-        for (const [id, pos] of Object.entries(selPlay.formation)) {
-          visualPos.current[`off-${id}`] = { ...pos };
-        }
-        for (const olId of OL_IDS) { if(ol[olId]) visualPos.current[`off-${olId}`] = { ...ol[olId] }; }
-        for (const [id, pos] of Object.entries(dPos)) {
-          visualPos.current[`def-${id}`] = { ...pos };
-        }
-        ballVisPos.current = { ...sq };
-        ballFlightRef.current = null;
-        const mxR = MX[selPlay.name]?.[def.key] || 0;
-        setCoach(coachPresnap(def, selPlay, mxR, game, coachType));
-        setMode("presnap");
+        if(twoPlayer){ setMode("p2_defense"); return; }
+        setupPresnap(selPlay, pickDef(game.dn,game.dst,game.bo,diff));
       };
 
       const snap=()=>{
@@ -1448,7 +1453,7 @@
         setPhase(0);setBc("qb");setBcP(null);setIsRun(false);setIsCatch(false);
         setResult(null);setHanded(false);setBallSt("held");setBallAn(false);
         setRunAct(0);setNarr("");setCamY(0);setShowTD(false);setShowGhost(isPre(diff));if(commentaryTimer.current)clearTimeout(commentaryTimer.current);setCommentary(null);setPracticeOverlay(null);
-        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
+        lastThrowOpenness.current=null;lastThrowTarget.current=null;tacklesBroken.current=0;tuckWarnings.current=0;maxContactsRef.current=2;scrambleLaneRef.current={phase:-1,open:false};catchLockRef.current=null;setContactFlash(null);if(fieldAlertTimer.current)clearTimeout(fieldAlertTimer.current);setFieldAlert(null);
         recSeeds.current={wr1:1,wr2:1,te:1,rb:1};blitzUncovered.current=defSch?.key==="blitz"?(Math.random()<0.5?"wr2":"te"):null;
         setRunArrows([]);setHoleInfo(null);setDebrief("");setPbp(["Snap"]);setRpoData(null);
         const sq=selPlay.formation.qb; setQbP(sq);setBallP({...sq});
@@ -1734,11 +1739,8 @@
             lastThrowOpenness.current=action.op?.lab||null;
             lastThrowTarget.current=action.target;
             const tp=curOff[action.target];
-            // FIX 5: Use receiver's current visual position for ball flight so it arcs
-            // toward where the receiver actually APPEARS on screen, not the route waypoint
-            // which may be near a defender's position due to lerp lag
-            const recVisual = visualPos.current[`off-${action.target}`];
-            const flightTarget = recVisual ? { x: recVisual.x, y: recVisual.y } : tp;
+            // FIX (15.4.2): Route waypoint only. visualPos is corrupted for receivers.
+            const flightTarget = {x:tp.x, y:tp.y};
             setBallSt("air");setBallAn(true);
             const throwDist = dst(qbP, flightTarget);
             const flightMs = cl(throwDist * 40 + 200, 300, 900);
@@ -1748,7 +1750,7 @@
               ex: flightTarget.x, ey: flightTarget.y,
               dur: flightMs, start: performance.now(), peak: arcPeak
             };
-            setBallP({...tp}); // target for state consistency
+            setBallP({...flightTarget}); // state target during flight
             setTimeout(()=>{
               ballFlightRef.current = null;
               setBallAn(false);
@@ -1756,17 +1758,27 @@
               else if(!res.ok){setPbp(p=>[...p,"Incomplete"]);setBallSt("ground");endPlay(0,res.msg,false,true,res.reason);}
               else{
                 setPbp(p=>[...p,`Caught at +${res.yds}`]);
-                setBallSt("held");setBc(res.cId);setBcP({...tp});setBallP({...tp});
+                // FIX (15.4.2): catchP from route waypoint. No visualPos dependency.
+                const catchP={x:flightTarget.x,y:flightTarget.y};
+                // SNAP refs immediately so no animation frame shows a stale position
+                visualPos.current[`off-${res.cId}`]={...catchP};
+                targetPosRef.current={...targetPosRef.current,[`off-${res.cId}`]:{...catchP}};
+                visualPos.current["bc-overlay"]={...catchP};
+                ballVisPos.current={...catchP};
+                ballTargetRef.current={...catchP};
+                bcRef.current=res.cId;
+                catchLockRef.current={id:res.cId,pos:{...catchP}};
+                setBallSt("held");setBc(res.cId);setBcP({...catchP});setBallP({...catchP});
                 setIsRun(true);setIsCatch(true);setRunAct(0);
                 // BUG 2 FIX: Single pursue only, enforce min 2yd separation so catch isn't instant tackle
-                let dp=pursue(defPos,tp,1,res.cId);
+                let dp=pursue(defPos,catchP,1,res.cId);
                 // Ensure no defender lands directly on the catch point
                 for(const [did,dpos] of Object.entries(dp)){
-                  const d=dst(tp,dpos);
+                  const d=dst(catchP,dpos);
                   if(d<2.5){
-                    const dx=(dpos.x-tp.x)*0.533,dy=dpos.y-tp.y;
+                    const dx=(dpos.x-catchP.x)*0.533,dy=dpos.y-catchP.y;
                     const dist=Math.sqrt(dx*dx+dy*dy)||1;
-                    dp[did]=R(tp.x+(dx/dist)*2.5/0.533, tp.y+(dy/dist)*2.5);
+                    dp[did]=R(catchP.x+(dx/dist)*2.5/0.533, catchP.y+(dy/dist)*2.5);
                   }
                 }
                 setDefPos(dp);
@@ -1774,18 +1786,16 @@
                 const visualDefs={};
                 for(const [did] of Object.entries(dp)){
                   const vp=visualPos.current[`def-${did}`];
-                  // Only use visual position if it exists; skip defenders with no visual entry
                   if(vp) visualDefs[did]=vp;
                   else visualDefs[did]=dp[did];
                 }
-                const catchNd=nearD(tp,visualDefs);
-                // Sanity check: also compute game-state distance — if game state says >4yd, visual is stale
-                const gameNd=nearD(tp,dp);
+                const catchNd=nearD(catchP,visualDefs);
+                const gameNd=nearD(catchP,dp);
                 const effectiveDist=Math.max(catchNd.d, gameNd.d * 0.7);
                 if(effectiveDist<2){
                   // TIER 1: Defender genuinely within 2 yards — immediate tackle
                   const tackleGain=rnd(0,1);
-                  const tackleP=R(tp.x,tp.y+tackleGain);
+                  const tackleP=R(catchP.x,catchP.y+tackleGain);
                   setBcP(tackleP);setBallP({...tackleP});
                   setPbp(p=>[...p,"Tackled immediately"]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} but the defender was right there — tackled on contact.`);
@@ -1796,15 +1806,14 @@
                   maxContactsRef.current=1;
                   setRunAct(0);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} — defender closing fast, one chance to make a move!`);
-                  const ndp=pursue(dp,tp,1,res.cId);setDefPos(ndp);
-                  const arrows=computeRunArrows(tp,ndp,game,0,res.cId,null,diff);setRunArrows(arrows);
-                  setCoach(coachRunner(tp,ndp,arrows,game,coachType));
+                  const ndp=pursue(dp,catchP,1,res.cId);setDefPos(ndp);
+                  const arrows=computeRunArrows(catchP,ndp,game,0,res.cId,null,diff);setRunArrows(arrows);
+                  setCoach(coachRunner(catchP,ndp,arrows,game,coachType));
                   animThen(()=>setMode("runner"),ANIM);
                 } else {
                   // TIER 3: Defender 4+ yards — open field, auto-gain (+3-8 bonus)
                   const bonus=rnd(3,8);
-                  const totalYds=res.yds+bonus;
-                  const nP=R(tp.x+rnd(-4,4),tp.y+bonus);
+                  const nP=R(catchP.x+rnd(-4,4),catchP.y+bonus);
                   setBcP(nP);setBallP({...nP});
                   setPbp(p=>[...p,`Open field +${bonus}`]);
                   setNarr(`${res.cId.toUpperCase()} catches for ${fmtYds(res.yds)} in space — picks up ${bonus} more!`);
@@ -2129,14 +2138,17 @@
           const mp=fgd<=30?0.95:fgd<=40?0.82:fgd<=50?0.60:fgd<=55?0.35:0.15;
           if(Math.random()<mp){
             setLog(l=>[`🥅 FG GOOD! ${fgd}yds`,...l].slice(0,25));
-            setGame(g=>({...g,bo:25,dn:1,dst:10,sc:{...g.sc,you:g.sc.you+3}}));
+            const oK=offensePlayer===1?"p1":"p2";
+            setGame(g=>({...g,bo:25,dn:1,dst:10,sc:{...g.sc,[oK]:g.sc[oK]+3}}));
           }
           else{
             setLog(l=>[`❌ FG MISSED ${fgd}yds`,...l].slice(0,25));
             setGame(g=>({...g,bo:25,dn:1,dst:10}));
           }
         } else {setMode("menu");setPCat(null);return;}
+        if(twoPlayer) setOffensePlayer(p=>p===1?2:1);
         resetForNew();
+        setMode("menu");
       };
 
       const resetForNew=()=>{
@@ -2179,14 +2191,18 @@
 
         setLog(l => [logMsg, ...l].slice(0, 25));
 
+        const oK=offensePlayer===1?"p1":"p2";
+        const dK=offensePlayer===1?"p2":"p1";
+        const driveOver=!!(r.turnover || r.td || nb >= 100 || nb <= 0 || toDowns);
+
         setGame(g => {
           let sc = { ...g.sc }, q = g.q, pr = g.pr + 1;
           let lp = [r.yds, ...g.lastPlays].slice(0, 5);
-          if (r.td || nb >= 100) sc.you += 7;
-          if (nb <= 0) sc.cpu += 2;
-          
+          if (r.td || nb >= 100) sc[oK] += 7;
+          if (nb <= 0) sc[dK] += 2;
+
           let finalBo = nb, finalDst = nd;
-          if (r.turnover || r.td || nb >= 100 || nb <= 0 || toDowns) {
+          if (driveOver) {
             finalBo = 25; finalDst = 10;
           } else if (nd <= 0) {
             finalDst = Math.min(10, 100 - nb);
@@ -2195,6 +2211,7 @@
           return { bo: finalBo, dn: newDn, dst: finalDst, sc, q: Math.min(4, ~~(pr / 12) + 1), pr, lastPlays: lp };
         });
 
+        if(twoPlayer && driveOver) setOffensePlayer(p=>p===1?2:1);
         resetForNew();
         if (newDn === 4) setMode("fourth");
         else setMode("menu");
@@ -2295,7 +2312,9 @@
         const isOL=p.pos==="OL";
         const hasBall=isOff&&ballSt==="held"&&id===bc&&!["diff_select","menu","playcall","presnap"].includes(mode);
         const key=`${team}-${id}`;
-        const vp=visualPos.current[key]||pos;
+        // FIX (15.4.2): Ball carrier renders from React state (bcP), not visualPos.
+        // visualPos is corrupted for receivers. bcP is set correctly by catch/handoff code.
+        const vp=(hasBall&&bcP)?bcP:(visualPos.current[key]||pos);
         const px=xS(vp.x),py=yS(vp.y);
         if(py<-40||py>FH+40)return null;
         const shape=getPlayerShape(p.pos,isOff);
@@ -2327,7 +2346,8 @@
 
       const renderBcOverlay=()=>{
         if(!bcP||!isRun||bc==="qb"||mode==="menu"||mode==="playcall"||ballSt!=="held")return null;
-        const bv=visualPos.current["bc-overlay"]||bcP;
+        // FIX (15.4.2): Use bcP directly — visualPos["bc-overlay"] is corrupted
+        const bv=bcP;
         const sz=32,px=xS(bv.x),py=yS(bv.y);
         if(py<-40||py>FH+40)return null;
         return(<div ref={el=>{if(el)bcElRef.current=el;}} style={{position:"absolute",left:px-sz/2,top:py-sz/2,width:sz,height:sz,borderRadius:"50%",
@@ -2475,12 +2495,43 @@
                   <div style={{fontSize:22,color:"#8aa0b8",marginBottom:24,fontWeight:700}}>Select Your Head Coach</div>
                   <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",maxWidth:620,margin:"0 auto 24px"}}>
                     <button onClick={()=>setCoachType("A")} style={{...btn,minWidth:280,flex:"1 1 280px",padding:"16px 20px",background:"#0e1520",border:"2px solid #4a9eff",color:"#d0dce8",textAlign:"left"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:"#4a9eff"}}>The Gunslinger</div>
-                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Aggressive, unpredictable, and always scheming. His plays are designed to surprise — and when they work, they work brilliantly.</div>
+                      <div style={{textAlign:"center",marginBottom:8}}>
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="32" cy="28" r="14" fill="#1a2a44"/>
+                          <circle cx="32" cy="24" r="10" fill="#c8a882"/>
+                          <ellipse cx="32" cy="22" rx="10" ry="4" fill="#2a4a7a"/>
+                          <rect x="22" y="18" width="20" height="4" rx="2" fill="#2a4a7a"/>
+                          <rect x="19" y="20" width="6" height="3" rx="1" fill="#2a4a7a"/>
+                          <circle cx="28" cy="26" r="1.5" fill="#1a1a2a"/>
+                          <circle cx="36" cy="26" r="1.5" fill="#1a1a2a"/>
+                          <path d="M29 30 Q32 33 35 30" stroke="#1a1a2a" strokeWidth="1.5" fill="none"/>
+                          <rect x="24" y="38" width="16" height="20" rx="4" fill="#4a9eff"/>
+                          <text x="32" y="52" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">JOE</text>
+                        </svg>
+                      </div>
+                      <div style={{fontSize:18,fontWeight:800,color:"#4a9eff"}}>Baby Boy Joey — The Gunslinger</div>
+                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Young, cocksure, and always scheming. Calls plays that make defensive coordinators swear. When they work, they're spectacular — and when they don't, his grit and hustle already have the next one drawn up.</div>
                     </button>
                     <button onClick={()=>setCoachType("B")} style={{...btn,minWidth:280,flex:"1 1 280px",padding:"16px 20px",background:"#0e1520",border:"2px solid #22c55e",color:"#d0dce8",textAlign:"left"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>The Old Fox</div>
-                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Forty years of football and he's seen it all. Develops his players, reads the game better than anyone, and makes the adjustments that win in the fourth quarter. His teams always play harder than they should.</div>
+                      <div style={{textAlign:"center",marginBottom:8}}>
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="32" cy="26" r="14" fill="#2a1a0a"/>
+                          <circle cx="32" cy="24" r="11" fill="#c8a882"/>
+                          <rect x="24" y="18" width="16" height="6" rx="3" fill="#8B4513"/>
+                          <rect x="25" y="19" width="5" height="5" rx="1" fill="#aad4ff" stroke="#666" strokeWidth="0.5"/>
+                          <rect x="34" y="19" width="5" height="5" rx="1" fill="#aad4ff" stroke="#666" strokeWidth="0.5"/>
+                          <path d="M27 30 Q32 34 37 30" stroke="#5a3a1a" strokeWidth="2.5" fill="none"/>
+                          <ellipse cx="32" cy="29" rx="5" ry="2" fill="#5a3a1a"/>
+                          <circle cx="28" cy="23" r="1.2" fill="#1a1a2a"/>
+                          <circle cx="36" cy="23" r="1.2" fill="#1a1a2a"/>
+                          <rect x="22" y="38" width="20" height="22" rx="5" fill="#b8860b"/>
+                          <circle cx="14" cy="24" r="4" fill="#333" stroke="#666" strokeWidth="1"/>
+                          <line x1="14" y1="24" x2="22" y2="26" stroke="#666" strokeWidth="1.5"/>
+                          <text x="32" y="53" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">JIM</text>
+                        </svg>
+                      </div>
+                      <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>Grizzled Jim — The Old Fox</div>
+                      <div style={{fontSize:15,color:"#8a9ab0",marginTop:6,lineHeight:1.5}}>Forty years on the sideline. Players run through walls for him. Knows the game cold, never panics, and a steadying presence when things get crazy.</div>
                     </button>
                   </div>
                 </>
@@ -2506,6 +2557,12 @@
                       <div style={{fontSize:16,color:"#8a9ab0",marginTop:4,lineHeight:1.5}}>{Array.isArray(d.desc)?d.desc.join(" "):d.desc}</div>
                     </button>))}
                   </div>
+                  <div style={{textAlign:"center",marginTop:16}}>
+                    <button onClick={()=>{setTwoPlayer(true);setDiff("regular");setOffensePlayer(1);setMode("menu");}} style={{...btn,padding:"14px 32px",background:"#1a0a2a",border:"2px solid #a855f7",color:"#a855f7",fontSize:18,fontWeight:800,letterSpacing:1}}>
+                      2 PLAYER
+                      <div style={{fontSize:13,color:"#8a9ab0",marginTop:4,fontWeight:400}}>Pass the device — one calls offense, one picks defense. Regular Season difficulty.</div>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -2515,9 +2572,9 @@
           {/* SCOREBOARD + VERSION + MENU */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 14px",background:"#10151f",borderRadius:6,border:"1px solid #1a2540",maxWidth:FW,margin:"0 auto 2px"}}>
             <div style={{display:"flex",gap:20,alignItems:"center"}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#4a9eff",fontWeight:700}}>YOU</div><div style={{fontSize:24,fontWeight:800,color:"#4a9eff"}}>{game.sc.you}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#4a9eff",fontWeight:700}}>{twoPlayer?"P1":"YOU"}{twoPlayer&&offensePlayer===1?" 🏈":""}</div><div style={{fontSize:24,fontWeight:800,color:"#4a9eff"}}>{game.sc.p1}</div></div>
               <div style={{color:"#2a3550"}}>vs</div>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>CPU</div><div style={{fontSize:24,fontWeight:800,color:"#ef4444"}}>{game.sc.cpu}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>{twoPlayer?"P2":"CPU"}{twoPlayer&&offensePlayer===2?" 🏈":""}</div><div style={{fontSize:24,fontWeight:800,color:"#ef4444"}}>{game.sc.p2}</div></div>
             </div>
             <div style={{textAlign:"center"}}><div style={{fontSize:14,fontWeight:800,color:"#fbbf24",letterSpacing:1}}>{GAME_VERSION}</div></div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2533,7 +2590,7 @@
               <div style={{fontSize:13,color:"#f97316",fontWeight:700,marginBottom:8}}>Return to main menu?</div>
               <div style={{fontSize:11,color:"#8a9ab0",marginBottom:12}}>Current game will be lost.</div>
               <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-                <button onClick={()=>{setShowMenuConfirm(false);setCoachType(null);setDiff(null);setGame({bo:25,dn:1,dst:10,sc:{you:0,cpu:0},q:1,pr:0,lastPlays:[]});resetForNew();setLog([]);practiceShown.current=new Set();tuckWarnings.current=0;setMode("diff_select");}} style={{...btn,padding:"8px 24px",background:"#f97316",color:"#000",fontSize:13,fontWeight:800}}>Yes</button>
+                <button onClick={()=>{setShowMenuConfirm(false);setCoachType(null);setDiff(null);setTwoPlayer(false);setOffensePlayer(1);setGame({bo:25,dn:1,dst:10,sc:{p1:0,p2:0},q:1,pr:0,lastPlays:[]});resetForNew();setLog([]);practiceShown.current=new Set();tuckWarnings.current=0;setMode("diff_select");}} style={{...btn,padding:"8px 24px",background:"#f97316",color:"#000",fontSize:13,fontWeight:800}}>Yes</button>
                 <button onClick={()=>setShowMenuConfirm(false)} style={{...btn,padding:"8px 24px",background:"#10151f",border:"1px solid #2a3550",color:"#8a9ab0",fontSize:13,fontWeight:700}}>No</button>
               </div>
             </div>
@@ -2726,6 +2783,21 @@
 
           {/* CONTROLS */}
           <div style={{maxWidth:FW,margin:"2px auto 0"}}>
+
+            {mode==="p2_defense"&&(
+              <div style={{transform:"rotate(180deg)",padding:16,background:"#0a0e1a",borderRadius:8,border:"2px solid #a855f7",textAlign:"center"}}>
+                <div style={{fontSize:16,fontWeight:800,color:"#a855f7",letterSpacing:2,marginBottom:4}}>DEFENSE — PICK YOUR FORMATION</div>
+                <div style={{fontSize:11,color:"#8a9ab0",marginBottom:12}}>P{offensePlayer===1?2:1} — choose wisely. P{offensePlayer} has called their play.</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,maxWidth:420,margin:"0 auto"}}>
+                  {Object.entries(DEFS).map(([key,d])=>(
+                    <button key={key} onClick={()=>p2PickDef(key)} style={{...btn,padding:"12px 16px",background:"#0e1520",border:"1px solid #a855f744",color:"#d0dce8",textAlign:"left"}}>
+                      <div style={{fontSize:16,fontWeight:800,color:"#a855f7"}}>{d.name}</div>
+                      <div style={{fontSize:13,color:"#8a9ab0",marginTop:2}}>{d.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {mode==="menu"&&!pCat&&(
               <div>
