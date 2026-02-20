@@ -8,6 +8,14 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.5.3 — 1P/2P Toggle + Catch Ref Snap
+
+**1P/2P Toggle**: Replaced standalone "2 PLAYER" button on diff_select screen with a segmented toggle above difficulty buttons. 1P (blue) / 2P (purple) toggle persists in `twoPlayer` state. Practice mode hidden in 2P (doesn't make sense). Difficulty onClick sets `offensePlayer(1)` when 2P. All existing 2P flow intact (P2 defense pick, rotated screen, score tracking, offense swap).
+
+**Catch Ref Snap (15.5.2)**: Fixed remaining catch teleport. rAF fires between setState batch and React re-render — bcRef.current is still "qb" (synced via useEffect, not yet run), so rAF doesn't skip receiver and moves DOM to stale route position. Fix: snap `bcRef.current` and `visualPos.current` synchronously in catch callback BEFORE setState calls.
+
+---
+
 ### ALPHA 15.5.1 — Cosmetic Lerp Layer Restored
 
 Re-added smooth animation as a cosmetic-only layer on top of the pure React rendering from 15.5.

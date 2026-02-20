@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tactical Football — ALPHA 15.5.2</title>
+  <title>Tactical Football — ALPHA 15.5.3</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,7 +14,7 @@
 
     const FW = 680, FH = Math.max(540, Math.floor(window.innerHeight * 0.74)), PY = FH / 42;
     const ANIM = 550, PANIM = 440, MAX_YAC = 3;
-    const GAME_VERSION = "Version ALPHA 15.5.2";
+    const GAME_VERSION = "Version ALPHA 15.5.3";
     const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
     const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const R = (x, y) => ({ x, y });
@@ -2394,31 +2394,30 @@
                 </>
               ) : (
                 <>
+                  <div style={{display:"flex",justifyContent:"center",gap:0,marginBottom:20}}>
+                    <button onClick={()=>setTwoPlayer(false)} style={{...btn,padding:"10px 28px",fontSize:16,fontWeight:800,borderRadius:"8px 0 0 8px",border:"2px solid #4a9eff",background:!twoPlayer?"#4a9eff":"#0e1520",color:!twoPlayer?"#000":"#4a9eff"}}>1 PLAYER</button>
+                    <button onClick={()=>setTwoPlayer(true)} style={{...btn,padding:"10px 28px",fontSize:16,fontWeight:800,borderRadius:"0 8px 8px 0",border:"2px solid #a855f7",borderLeft:"none",background:twoPlayer?"#a855f7":"#0e1520",color:twoPlayer?"#000":"#a855f7"}}>2 PLAYER</button>
+                  </div>
+                  {twoPlayer&&<div style={{fontSize:13,color:"#a855f7",marginBottom:12,fontStyle:"italic"}}>Pass the device — one calls offense, one picks defense.</div>}
                   <div style={{fontSize:22,color:"#8aa0b8",marginBottom:24,fontWeight:700}}>Choose Your Difficulty</div>
                   <div style={{display:"flex",gap:10,flexDirection:"column",maxWidth:400,margin:"0 auto"}}>
                     {[
-                      {key:"practice",label:"Practice (Team Practice)",desc:[
+                      ...(!twoPlayer?[{key:"practice",label:"Practice (Team Practice)",desc:
             "Learn every part of football step by step. The game pauses and explains each decision. No pressure, no score — just learning.",
-          ],col:"#4a9eff"},
-                      {key:"preseason",label:"Preseason",desc:[
+          col:"#4a9eff"}]:[]),
+                      {key:"preseason",label:"Preseason",desc:
             "Learn the game. Coach explains every position, every play, and why matchups matter. Perfect if you're new to football.",
-          ],col:"#22c55e"},
-                      {key:"regular",label:"Regular Season",desc:[
+          col:"#22c55e"},
+                      {key:"regular",label:"Regular Season",desc:
             "You know the basics. Coach steps back, training wheels come off. You make the reads.",
-          ],col:"#fbbf24"},
-                      {key:"playoffs",label:"Playoffs",desc:[
+          col:"#fbbf24"},
+                      {key:"playoffs",label:"Playoffs",desc:
             "No help. Pure football IQ.",
-          ],col:"#ef4444"},
-                    ].map(d=>(<button key={d.key} onClick={()=>{setDiff(d.key);setMode("menu");}} style={{...btn,padding:"18px 22px",background:"#0e1520",border:`2px solid ${d.col}44`,color:d.col,textAlign:"left"}}>
+          col:"#ef4444"},
+                    ].map(d=>(<button key={d.key} onClick={()=>{setDiff(d.key);if(twoPlayer)setOffensePlayer(1);setMode("menu");}} style={{...btn,padding:"18px 22px",background:"#0e1520",border:`2px solid ${d.col}44`,color:d.col,textAlign:"left"}}>
                       <div style={{fontSize:18,fontWeight:800}}>{d.label}</div>
-                      <div style={{fontSize:16,color:"#8a9ab0",marginTop:4,lineHeight:1.5}}>{Array.isArray(d.desc)?d.desc.join(" "):d.desc}</div>
+                      <div style={{fontSize:16,color:"#8a9ab0",marginTop:4,lineHeight:1.5}}>{d.desc}</div>
                     </button>))}
-                  </div>
-                  <div style={{textAlign:"center",marginTop:16}}>
-                    <button onClick={()=>{setTwoPlayer(true);setDiff("regular");setOffensePlayer(1);setMode("menu");}} style={{...btn,padding:"14px 32px",background:"#1a0a2a",border:"2px solid #a855f7",color:"#a855f7",fontSize:18,fontWeight:800,letterSpacing:1}}>
-                      2 PLAYER
-                      <div style={{fontSize:13,color:"#8a9ab0",marginTop:4,fontWeight:400}}>Pass the device — one calls offense, one picks defense. Regular Season difficulty.</div>
-                    </button>
                   </div>
                 </>
               )}
