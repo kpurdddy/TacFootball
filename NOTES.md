@@ -8,6 +8,26 @@ Single-file React app (`tacfoot4.html`) — tactical football game with play cal
 
 ## Changes Made 2026-02-19
 
+### ALPHA 15.4.1 — Catch Teleport Fix (Hardened)
+
+**Bug**: Receiver still teleported backward on catch despite 15.4's `flightTarget` fix. Root cause: `flightTarget` was captured at throw time, but receiver keeps running their route during ball flight (300-900ms). By catch time, `flightTarget` is stale.
+
+**Fix (line ~1748-1754)**:
+1. Read receiver's CURRENT visual position at catch time: `const recNow = visualPos.current[`off-${res.cId}`]`
+2. Use `recNow` (not `flightTarget`) as `catchP`
+3. Immediately snap ALL animation refs to `catchP` — no stale frame can show:
+   - `visualPos.current[`off-${res.cId}`]` = catchP (receiver dot)
+   - `targetPosRef.current[`off-${res.cId}`]` = catchP (animation target)
+   - `visualPos.current["bc-overlay"]` = catchP (ball carrier overlay)
+   - `ballVisPos.current` = catchP (ball visual)
+4. Then React state updates: `setBcP`, `setBallP`, `setBc`, `setIsRun` etc.
+
+This eliminates any timing race between React state updates and the rAF animation loop — refs are snapped immediately, so no animation frame ever reads a stale target.
+
+Verified: `sed -n '1747,1758p'` confirms all snap lines in place.
+
+---
+
 ### ALPHA 15.4 — Catch Teleport Fix + Coach Names + Basic Two-Player
 
 Backup: `tacfoot4-v30.html` (pre-ALPHA 15.4 state)
