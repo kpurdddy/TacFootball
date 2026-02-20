@@ -472,17 +472,22 @@
 
     function doThrow(recId,ph,offP,defP,scheme,pi,lookDir,preProbs,diff) {
       const pr=preProbs||throwProbs(recId,ph,offP,defP,scheme,pi,lookDir,diff),rP=offP[recId];
-      if(Math.random()*100<pr.ip) return {ok:false,int:true,yds:0,msg:`INTERCEPTED targeting ${recId.toUpperCase()}!`,tP:rP,reason:"Defender read the throw and jumped the route."};
+      // Defender proximity gate — scale interception chance by nearest defender distance
+      let nearDefDist=99;
+      for(const dp of Object.values(defP)){if(dp){const d=dst(rP,dp);if(d<nearDefDist)nearDefDist=d;}}
+      const effectiveIp=nearDefDist>=8?0:nearDefDist>=5?Math.round(pr.ip*0.15):nearDefDist>=3?Math.round(pr.ip*0.5):pr.ip;
+      if(Math.random()*100<effectiveIp) return {ok:false,int:true,yds:0,msg:`INTERCEPTED targeting ${recId.toUpperCase()}!`,tP:rP,reason:"Defender read the throw and jumped the route."};
       if(Math.random()*100>pr.cp) {
+        const defClose=nearDefDist<4;
         const reasons = isPre(diff)?[
           {msg:"throw went too high",why:"Defenders closing in made it hard to throw accurately — the ball sailed over the receiver's head."},
           {msg:"throw hit the ground",why:"The QB couldn't plant his feet with defenders closing in — the throw bounced short."},
-          {msg:"defender knocked it away",why:`The defender was right on the receiver (${pr.op.lab.toLowerCase()}) and got a hand on the ball.`},
+          ...(defClose?[{msg:"defender knocked it away",why:`The defender was right on the receiver (${pr.op.lab.toLowerCase()}) and got a hand on the ball.`}]:[]),
           {msg:"receiver couldn't hold on",why:"The receiver couldn't hang onto the ball — the throw was slightly off target."},
         ]:[
           {msg:"ball sails high",why:"Pressure forced a bad throw — the ball went over the receiver's head."},
           {msg:"pass hits turf",why:"QB couldn't set his feet under pressure — the ball bounced short."},
-          {msg:"CB bats it away",why:`The cornerback was in tight coverage (${pr.op.lab.toLowerCase()}) and got a hand on it.`},
+          ...(defClose?[{msg:"CB bats it away",why:`The cornerback was in tight coverage (${pr.op.lab.toLowerCase()}) and got a hand on it.`}]:[]),
           {msg:"can't haul it in",why:"The receiver couldn't secure the catch — ball was slightly off target."},
         ];
         const r=pick(reasons);
